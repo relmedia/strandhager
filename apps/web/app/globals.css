@@ -1,0 +1,69 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Shared shadcn components live outside the app, so Tailwind must scan them. */
+@source "../../../packages/ui/src/select.tsx";
+
+:root {
+  /* Logo greens + sky blue */
+  --brand-green: #3f9a28;
+  --brand-green-deep: #2d701c;
+  --brand-green-soft: #e6f4df;
+  --brand-blue: #2f9fd0;
+  --brand-blue-deep: #1f7aa3;
+  --ink: #1c2a1a;
+  --ink-muted: #4a5a45;
+  --sand: #f3f7f0;
+  --sea-mist: #e8f4f8;
+  --background: var(--sand);
+  --foreground: var(--ink);
+  --radius: 0.25rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand-green);
+  --color-brand-deep: var(--brand-green-deep);
+  --color-brand-soft: var(--brand-green-soft);
+  --color-sea: var(--brand-blue);
+  --color-sea-deep: var(--brand-blue-deep);
+  --color-sea-mist: var(--sea-mist);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-sand: var(--sand);
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-fraunces);
+
+  /* Tokens the shared shadcn components rely on, mapped to the site palette. */
+  --color-popover: #ffffff;
+  --color-popover-foreground: var(--ink);
+  --color-accent: var(--sand);
+  --color-accent-foreground: var(--ink);
+  --color-muted-foreground: var(--ink-muted);
+  --color-input: color-mix(in oklab, var(--ink) 15%, transparent);
+  --color-border: color-mix(in oklab, var(--ink) 10%, transparent);
+  --color-ring: var(--brand-green);
+  --color-destructive: #b91c1c;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), system-ui, sans-serif;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--brand-green) 35%, white);
+  color: var(--ink);
+}

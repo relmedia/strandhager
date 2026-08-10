@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Generated Prisma client
+packages/database/src/generated/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Uploads written at runtime by the CMS media endpoint
+apps/web/public/uploads/
+
+# Full-resolution downloads kept only as input for the image export scripts
+scripts/*-raw/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Editors and OS
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

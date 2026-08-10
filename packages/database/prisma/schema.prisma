@@ -1,0 +1,347 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SiteSection {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  data      Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model Cabin {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  maxGuests   Int
+  bedrooms    Int
+  bathrooms   Int
+  size        Int?
+  active      Boolean  @default(true)
+  featured    Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  images      CabinImage[]
+}
+
+/// Something that can be rented out by the day, such as Felleshuset.
+model Space {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String?
+  maxGuests   Int
+  /// Added once per booking on top of the day rates.
+  cleaningFee Int     @default(0)
+  /// Small print under the price cards, e.g. "Alle priser er oppgitt inkl. mva."
+  priceNote   String?
+  /// Days a booking must start at least this far ahead.
+  noticeDays  Int     @default(2)
+  active      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rates     Rate[]
+  bookings  Booking[]
+  blackouts Blackout[]
+}
+
+/// A stretch of days the space is closed for reasons other than a booking,
+/// such as maintenance or a holiday. Guests cannot book across these.
+model Blackout {
+  id      String @id @default(cuid())
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  /// First and last closed day, both inclusive. Dates only, no time of day.
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  /// Why it is closed, only ever shown in the dashboard.
+  reason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spaceId, startDate, endDate])
+}
+
+/// Day rate for a set of weekdays, e.g. "Fredag–søndag" at 5000.
+model Rate {
+  id      String @id @default(cuid())
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  label String
+  /// ISO weekdays this rate covers: 1 = Monday … 7 = Sunday.
+  weekdays Int[]
+  /// Whole NOK per day.
+  amount   Int
+  position Int    @default(0)
+
+  @@index([spaceId])
+}
+
+model CabinImage {
+  id       String @id @default(cuid())
+  url      String
+  alt      String?
+  position Int    @default(0)
+
+  cabinId  String
+  cabin    Cabin  @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+}
+
+model Guest {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  /// Organisation booking on behalf of, when there is one.
+  company   String?
+
+  bookings  Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Booking {
+  id String @id @default(cuid())
+  /// Short human-readable code the guest quotes when they get in touch.
+  reference   String @unique
+  /// Secret in the guest's cancellation link; the only thing guarding self-service cancel.
+  cancelToken String @unique
+
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id])
+
+  guestId String
+  guest   Guest  @relation(fields: [guestId], references: [id])
+
+  /// First and last rented day, both inclusive. Dates only, no time of day.
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+
+  guests  Int
+  /// What the space is being rented for, e.g. "Bryllup".
+  purpose String?
+  /// Whatever the guest wrote when booking.
+  message String?
+  /// Internal remarks, only visible in the dashboard.
+  notes   String?
+
+  /// Price snapshot, so later rate changes never rewrite history.
+  dayTotal    Int
+  cleaningFee Int
+  total       Int
+
+  status        BookingStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID)
+
+  cancelledAt   DateTime?
+  cancelledBy   CancelledBy?
+  cancelReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spaceId, startDate, endDate])
+  @@index([status])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  CANCELLED
+  COMPLETED
+}
+
+enum CancelledBy {
+  GUEST
+  ADMIN
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  REFUNDED
+}
+
+/// One of the 47 garden plots, each with its own cabin.
+model Parcel {
+  id String @id @default(cuid())
+  /// The number on the plan, which is how everyone refers to the plot.
+  number Int @unique
+  /// Square metres of garden. The standard plot is 300.
+  size Int?
+  /// Internal remarks, only visible in the dashboard.
+  notes String?
+  /// False when the plot is held back from sale, e.g. during groundwork.
+  available Boolean @default(true)
+
+  /// Who owns it today. Empty means the plot is free.
+  ownerId String?
+  owner   Parcellant? @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  /// Everyone who has ever owned it, including whoever owns it now.
+  ownerships Ownership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+/// A spell of one person owning one plot. The spell without an end is the one
+/// running now, and the ended ones are the plot's history.
+model Ownership {
+  id String @id @default(cuid())
+
+  parcelId String
+  parcel   Parcel @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+
+  parcellantId String
+  /// Held back rather than cascaded, so tidying up a contact cannot quietly
+  /// erase who owned a plot years ago.
+  parcellant   Parcellant @relation(fields: [parcellantId], references: [id], onDelete: Restrict)
+
+  /// The day they took the plot over.
+  startedAt DateTime @db.Date
+  /// The day they sold it on. Empty while they still own it.
+  endedAt   DateTime? @db.Date
+
+  /// Why it changed hands, or anything else worth remembering.
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parcelId, startedAt])
+  @@index([parcellantId])
+}
+
+/// Someone who owns a parcel. "Parsellant" is what they are called locally.
+model Parcellant {
+  id        String  @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  address   String?
+  notes     String?
+
+  /// Normally one, but nothing stops a household owning two.
+  parcels Parcel[]
+
+  /// Every plot they have owned, past and present.
+  ownerships Ownership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+/// Someone hoping for a plot. Their turn is decided by when they signed up.
+model WaitlistEntry {
+  id        String  @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  /// Whatever they wrote when they got in touch.
+  message   String?
+  /// Internal remarks, only visible in the dashboard.
+  notes     String?
+
+  status WaitlistStatus @default(WAITING)
+  /// When they were offered a plot, so an unanswered offer is easy to spot.
+  offeredAt DateTime?
+
+  /// Whether they signed up themselves or the board entered them. Nobody has
+  /// checked a sign-up from the website, so it is worth telling apart.
+  source WaitlistSource @default(ADMIN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+enum WaitlistSource {
+  /// Signed up through the form on strandhager.no.
+  WEBSITE
+  /// Entered by the board, usually after a phone call or an email.
+  ADMIN
+}
+
+enum WaitlistStatus {
+  /// Still waiting their turn.
+  WAITING
+  /// Has been offered a plot and has not answered yet.
+  OFFERED
+  /// Took a plot, and is now a parsellant.
+  ACCEPTED
+  /// Said no, or withdrew.
+  DECLINED
+}
+
+/// How the association sends e-post, edited under Innstillinger → E-post.
+/// A single row, created the first time the settings are saved.
+model MailSettings {
+  id String @id @default("mail")
+
+  /// Resend API key. Kept here rather than in env so the board can manage it
+  /// from the dashboard. Never sent back to the browser in full.
+  apiKey String?
+  /// The name recipients see as the sender.
+  fromName String @default("Ølberg strandhager")
+  /// Must belong to a domain verified in Resend, or Resend refuses to send.
+  fromEmail String @default("onboarding@resend.dev")
+  /// Where the board's copies go: contact form messages, new bookings.
+  notifyEmail String?
+  /// Master switch, so sending can be paused without losing the key.
+  enabled Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+}
+
+/// A message sent through the contact form on the website.
+model ContactMessage {
+  id String @id @default(cuid())
+
+  name    String
+  email   String
+  phone   String?
+  subject String?
+  message String
+
+  status ContactStatus @default(NEW)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+enum ContactStatus {
+  /// Nobody has dealt with it yet.
+  NEW
+  /// Answered or otherwise closed.
+  HANDLED
+}
