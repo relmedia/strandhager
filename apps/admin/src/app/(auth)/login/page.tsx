@@ -12,10 +12,10 @@ export default function LoginPage() {
         <div className="flex h-full flex-col items-center justify-center p-12 text-center">
           <div className="space-y-6">
             <Image
-              src="/images/logo.svg"
+              src="/images/logo.png"
               alt={APP_CONFIG.name}
               width={200}
-              height={80}
+              height={137}
               priority
               className="mx-auto h-auto w-50"
             />

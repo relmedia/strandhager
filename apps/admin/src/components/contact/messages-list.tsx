@@ -8,6 +8,12 @@ import { toast } from "sonner";
 import { ConfirmDelete } from "@/components/cms/confirm-delete";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -36,6 +42,10 @@ export function MessagesList() {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  // Read from the list so the dialog reflects status changes right away.
+  const open = messages.find((entry) => entry.id === openId) ?? null;
 
   useEffect(() => {
     listContactMessages()
@@ -128,12 +138,14 @@ export function MessagesList() {
             {messages.map((entry) => (
               <TableRow
                 key={entry.id}
-                className={entry.status === "HANDLED" ? "opacity-60" : ""}
+                onClick={() => setOpenId(entry.id)}
+                className={`cursor-pointer ${entry.status === "HANDLED" ? "opacity-60" : ""}`}
               >
                 <TableCell className="align-top">
                   <p className="font-medium">{entry.name}</p>
                   <a
                     href={`mailto:${entry.email}`}
+                    onClick={(event) => event.stopPropagation()}
                     className="flex items-center gap-1.5 text-muted-foreground text-xs hover:underline"
                   >
                     <Mail className="size-3" />
@@ -142,6 +154,7 @@ export function MessagesList() {
                   {entry.phone ? (
                     <a
                       href={`tel:${entry.phone.replace(/\s/g, "")}`}
+                      onClick={(event) => event.stopPropagation()}
                       className="flex items-center gap-1.5 text-muted-foreground text-xs hover:underline"
                     >
                       <Phone className="size-3" />
@@ -154,9 +167,12 @@ export function MessagesList() {
                   {entry.subject ? (
                     <p className="font-medium text-sm">{entry.subject}</p>
                   ) : null}
-                  <p className="max-w-96 whitespace-normal text-muted-foreground text-sm">
+                  <p className="line-clamp-2 max-w-96 whitespace-normal text-muted-foreground text-sm">
                     {entry.message}
                   </p>
+                  <span className="text-primary text-xs hover:underline">
+                    Les hele meldingen
+                  </span>
                 </TableCell>
 
                 <TableCell className="hidden align-top text-muted-foreground text-sm md:table-cell">
@@ -168,7 +184,10 @@ export function MessagesList() {
                     variant="ghost"
                     size="sm"
                     className="h-auto p-0 hover:bg-transparent"
-                    onClick={() => void toggleStatus(entry)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void toggleStatus(entry);
+                    }}
                     title={
                       entry.status === "NEW"
                         ? "Merk som behandlet"
@@ -183,7 +202,10 @@ export function MessagesList() {
                   </Button>
                 </TableCell>
 
-                <TableCell className="align-top">
+                <TableCell
+                  className="align-top"
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <div className="flex justify-end">
                     <ConfirmDelete
                       label={`Slett henvendelsen fra ${entry.name}`}
@@ -199,6 +221,65 @@ export function MessagesList() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={open !== null} onOpenChange={(next) => !next && setOpenId(null)}>
+        {open ? (
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{open.subject ?? "Henvendelse"}</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-1 text-sm">
+                <p className="font-medium">{open.name}</p>
+                <a
+                  href={`mailto:${open.email}`}
+                  className="flex items-center gap-1.5 text-muted-foreground hover:underline"
+                >
+                  <Mail className="size-3.5" />
+                  {open.email}
+                </a>
+                {open.phone ? (
+                  <a
+                    href={`tel:${open.phone.replace(/\s/g, "")}`}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:underline"
+                  >
+                    <Phone className="size-3.5" />
+                    {open.phone}
+                  </a>
+                ) : null}
+                <p className="text-muted-foreground text-xs">
+                  Mottatt {dateFormat.format(new Date(open.createdAt))}
+                </p>
+              </div>
+
+              <div className="max-h-[50vh] overflow-y-auto rounded-lg bg-muted/50 p-4">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {open.message}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => void toggleStatus(open)}
+                >
+                  {open.status === "NEW"
+                    ? "Merk som behandlet"
+                    : "Merk som ubehandlet"}
+                </Button>
+                <Button asChild>
+                  <a
+                    href={`mailto:${open.email}?subject=${encodeURIComponent(`Re: ${open.subject ?? "Din henvendelse"}`)}`}
+                  >
+                    Svar på e-post
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

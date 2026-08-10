@@ -42,11 +42,11 @@ export function AppSidebar({
             <SidebarMenuButton asChild>
               <Link prefetch={false} href="/">
                 <Image
-                  src="/images/logo.svg"
+                  src="/images/logo.png"
                   alt=""
-                  width={16}
-                  height={16}
-                  className="size-4 shrink-0"
+                  width={20}
+                  height={14}
+                  className="w-5 shrink-0"
                 />
                 <span className="font-semibold text-base">{APP_CONFIG.name}</span>
               </Link>
