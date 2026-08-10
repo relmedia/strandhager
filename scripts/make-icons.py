@@ -7,7 +7,7 @@ gets the brand's soft green as a backdrop instead.
 
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 LOGO = ROOT / "apps/web/public/images/logo.png"
@@ -38,6 +38,28 @@ def squared(logo: Image.Image, size: int, pad: float, background=None) -> Image.
     return canvas
 
 
+def badged(logo: Image.Image, size: int, pad: float, background) -> Image.Image:
+    """The logo on a rounded square so it reads clearly at tab size."""
+    # Render large and downscale for smooth corners at 16-32px.
+    big = size * 4
+    canvas = squared(logo, big, pad)
+
+    # The line art is too thin to survive 16px, so stamp it with small
+    # offsets to fatten the strokes before scaling down.
+    thick = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    reach = max(1, big // 64)
+    for dx in range(-reach, reach + 1):
+        for dy in range(-reach, reach + 1):
+            thick.alpha_composite(canvas, (dx + reach, dy + reach))
+
+    plate = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    ImageDraw.Draw(plate).rounded_rectangle(
+        (0, 0, big - 1, big - 1), radius=big // 5, fill=background
+    )
+    plate.alpha_composite(thick, (-reach, -reach))
+    return plate.resize((size, size), Image.LANCZOS)
+
+
 def cleaned(image: Image.Image) -> Image.Image:
     """The logo without the near-white fringe pixels baked into the source,
     which would show up as noise on dark browser tabs."""
@@ -58,7 +80,8 @@ for app_dir in TARGETS:
         app_dir / "apple-icon.png"
     )
     # Browsers ask for /favicon.ico first, so it must carry the logo too.
-    squared(logo, 64, pad=0.02).save(
+    # A soft green plate behind the logo keeps it visible on any tab theme.
+    badged(logo, 64, pad=0.08, background=BRAND_SOFT).save(
         app_dir / "favicon.ico",
         sizes=[(16, 16), (32, 32), (48, 48), (64, 64)],
     )
