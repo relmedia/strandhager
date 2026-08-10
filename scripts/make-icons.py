@@ -57,4 +57,9 @@ for app_dir in TARGETS:
     squared(logo, 180, pad=0.12, background=BRAND_SOFT).convert("RGB").save(
         app_dir / "apple-icon.png"
     )
-    print(f"wrote {app_dir / 'icon.png'} and {app_dir / 'apple-icon.png'}")
+    # Browsers ask for /favicon.ico first, so it must carry the logo too.
+    squared(logo, 64, pad=0.02).save(
+        app_dir / "favicon.ico",
+        sizes=[(16, 16), (32, 32), (48, 48), (64, 64)],
+    )
+    print(f"wrote icon.png, apple-icon.png and favicon.ico in {app_dir}")
