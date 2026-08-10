@@ -281,7 +281,7 @@ function DirectContact({
   contact: ContactContent;
 }) {
   const person = topic === "PARSELLENE" ? contact.plots : contact.booking;
-  const phone = "phone" in person ? person.phone : null;
+  const phone = person.phone ?? null;
 
   return (
     <div className="mt-6 rounded-sm bg-sand px-4 py-3.5">

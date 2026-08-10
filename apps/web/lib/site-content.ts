@@ -109,7 +109,7 @@ export type LocationContent = {
 
 export type ContactContent = {
   booking: { name: string; email: string; phone: string };
-  plots: { name: string; email: string };
+  plots: { name: string; email: string; phone?: string };
 };
 
 export type SiteContent = {
