@@ -46,6 +46,8 @@ model Space {
   priceNote   String?
   /// Days a booking must start at least this far ahead.
   noticeDays  Int     @default(2)
+  /// The longest stretch of days a single booking may cover.
+  maxBookingDays Int  @default(14)
   active      Boolean @default(true)
 
   createdAt DateTime @default(now())
@@ -154,6 +156,11 @@ model Booking {
   cancelledAt   DateTime?
   cancelledBy   CancelledBy?
   cancelReason  String?
+
+  /// When the guest ticked the rental-terms box, kept as proof of acceptance.
+  termsAcceptedAt DateTime?
+  /// The guest's hand-drawn signature as a PNG data URL.
+  signature       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

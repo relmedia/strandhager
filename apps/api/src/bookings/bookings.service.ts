@@ -64,8 +64,12 @@ export class BookingsService {
    * nothing is confirmed until someone accepts it in the dashboard.
    */
   async create(dto: CreateBookingDto) {
-    const { start, end } = assertBookableRange(dto.startDate, dto.endDate);
     const space = await this.spaces.findBySlug(dto.space);
+    const { start, end } = assertBookableRange(
+      dto.startDate,
+      dto.endDate,
+      space.maxBookingDays,
+    );
 
     if (!space.active) {
       throw new BadRequestException(`${space.name} kan ikke bookes for øyeblikket`);
@@ -121,6 +125,9 @@ export class BookingsService {
           dayTotal: quote.dayTotal,
           cleaningFee: quote.cleaningFee,
           total: quote.total,
+          // The DTO guarantees the box was ticked before we get here.
+          termsAcceptedAt: new Date(),
+          signature: dto.signature,
         });
       },
       { isolationLevel: 'Serializable' },
@@ -269,7 +276,7 @@ export class BookingsService {
     const end = dto.endDate ?? toIsoDate(existing.endDate);
 
     if (movingDates) {
-      const range = assertBookableRange(start, end);
+      const range = assertBookableRange(start, end, existing.space.maxBookingDays);
       const quote = priceOrThrow(
         existing.space.rates,
         existing.space.cleaningFee,

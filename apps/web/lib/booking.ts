@@ -18,6 +18,8 @@ export type Space = {
   cleaningFee: number;
   priceNote: string | null;
   noticeDays: number;
+  /** The longest stretch of days a single booking may cover. */
+  maxBookingDays: number;
   active: boolean;
   rates: Rate[];
   closedWeekdays: number[];
@@ -88,6 +90,10 @@ export type BookingRequest = {
   company?: string;
   purpose?: string;
   message?: string;
+  /** The rental terms box; the API refuses the request unless it is true. */
+  acceptTerms: boolean;
+  /** The hand-drawn signature as a PNG data URL. */
+  signature: string;
 };
 
 /** Error carrying the message the API wrote, which is already in Norwegian. */

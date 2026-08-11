@@ -29,6 +29,8 @@ export function toAdminView(booking: BookingRecord) {
     cancelledAt: booking.cancelledAt?.toISOString() ?? null,
     cancelledBy: booking.cancelledBy,
     cancelReason: booking.cancelReason,
+    termsAcceptedAt: booking.termsAcceptedAt?.toISOString() ?? null,
+    signature: booking.signature,
     createdAt: booking.createdAt.toISOString(),
     updatedAt: booking.updatedAt.toISOString(),
     space: { slug: booking.space.slug, name: booking.space.name },
@@ -41,6 +43,8 @@ export function toAdminView(booking: BookingRecord) {
 
 /** What the guest may see: no internal notes, no database id, no token. */
 export function toGuestView(booking: BookingRecord) {
-  const { id, notes, cancelToken, ...rest } = toAdminView(booking);
+  // The signature stays out too: it is dashboard evidence, and inlining the
+  // image would bloat every guest response.
+  const { id, notes, cancelToken, signature, ...rest } = toAdminView(booking);
   return rest;
 }

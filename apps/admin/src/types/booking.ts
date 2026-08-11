@@ -27,6 +27,10 @@ export type Booking = {
   cancelledAt: string | null;
   cancelledBy: "GUEST" | "ADMIN" | null;
   cancelReason: string | null;
+  /** When the guest ticked the rental-terms box on the website. */
+  termsAcceptedAt: string | null;
+  /** The guest's hand-drawn signature as a PNG data URL. */
+  signature: string | null;
   createdAt: string;
   updatedAt: string;
   /** Secret in the guest's own booking link, so it can be resent. */
@@ -59,6 +63,8 @@ export type Space = {
   cleaningFee: number;
   priceNote: string | null;
   noticeDays: number;
+  /** The longest stretch of days a single booking may cover. */
+  maxBookingDays: number;
   active: boolean;
   rates: Rate[];
   closedWeekdays: number[];

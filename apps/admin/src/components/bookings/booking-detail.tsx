@@ -99,6 +99,9 @@ export function BookingDetail({ id }: { id: string }) {
           Referanse{" "}
           <span className="font-mono tracking-wider">{data.reference}</span> · sendt inn{" "}
           {formatTimestamp(data.createdAt)}
+          {data.termsAcceptedAt
+            ? ` · leievilkårene godtatt ${formatTimestamp(data.termsAcceptedAt)}`
+            : null}
         </p>
       </div>
 
@@ -123,6 +126,25 @@ export function BookingDetail({ id }: { id: string }) {
               <p className="mt-1.5 whitespace-pre-wrap text-muted-foreground text-sm">
                 {data.message}
               </p>
+            </div>
+          ) : null}
+
+          {data.signature ? (
+            <div className="rounded-md bg-muted/50 p-4">
+              <p className="font-medium text-sm">Signatur</p>
+              {data.termsAcceptedAt ? (
+                <p className="mt-0.5 text-muted-foreground text-xs">
+                  Leievilkårene ble godtatt og signert{" "}
+                  {formatTimestamp(data.termsAcceptedAt)}
+                </p>
+              ) : null}
+              {/* A data URL drawn by the guest; next/image has nothing to optimize here. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={data.signature}
+                alt={`Signaturen til ${data.guest.firstName} ${data.guest.lastName}`}
+                className="mt-2 h-24 w-auto max-w-full rounded-md bg-white ring-1 ring-border"
+              />
             </div>
           ) : null}
 

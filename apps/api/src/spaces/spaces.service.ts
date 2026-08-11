@@ -42,6 +42,7 @@ export class SpacesService {
       cleaningFee: space.cleaningFee,
       priceNote: space.priceNote,
       noticeDays: space.noticeDays,
+      maxBookingDays: space.maxBookingDays,
       active: space.active,
       rates: space.rates.map((rate) => ({
         id: rate.id,

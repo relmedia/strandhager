@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { CalendarDays, LoaderCircle, TriangleAlert } from "lucide-react";
+import {
+  CalendarDays,
+  LoaderCircle,
+  PenLine,
+  TriangleAlert,
+} from "lucide-react";
 
 import {
   AvailabilityCalendar,
@@ -17,6 +22,7 @@ import {
 } from "@/components/booking/fields";
 import { BookingReceipt } from "@/components/booking/booking-receipt";
 import { PriceRow } from "@/components/booking/price-cards";
+import { RentalTermsDialog } from "@/components/booking/rental-terms";
 import {
   BookingError,
   createBooking,
@@ -69,11 +75,30 @@ export function BookingPanel({ space }: { space: Space }) {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [details, setDetails] = useState<Details>(EMPTY);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [termsOpen, setTermsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ booking: Booking; cancelToken: string } | null>(
     null,
   );
+  const receiptPanel = useRef<HTMLElement>(null);
+
+  // The receipt replaces the form well above the submit button the guest just
+  // clicked, so bring it into view once it has rendered. The position is
+  // worked out by hand because scrollIntoView ignores the fixed header.
+  useEffect(() => {
+    if (!result || !receiptPanel.current) return;
+    const HEADER_CLEARANCE = 104;
+    window.scrollTo({
+      top:
+        receiptPanel.current.getBoundingClientRect().top +
+        window.scrollY -
+        HEADER_CLEARANCE,
+      behavior: "smooth",
+    });
+  }, [result]);
 
   // A range may not stretch across days that are taken or shut, so the two
   // are one and the same when working out what the next click means.
@@ -143,20 +168,24 @@ export function BookingPanel({ space }: { space: Space }) {
 
   function handleSelect(date: string) {
     setError(null);
-    setSelection((current) => nextSelection(current, date, unavailableDates));
+    setSelection((current) =>
+      nextSelection(current, date, unavailableDates, space.maxBookingDays),
+    );
   }
 
   function reset() {
     setResult(null);
     setSelection(null);
     setDetails(EMPTY);
+    setAcceptedTerms(false);
+    setSignature(null);
     setError(null);
     void loadAvailability();
   }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!selection?.end) return;
+    if (!selection?.end || !signature) return;
 
     setSubmitting(true);
     setError(null);
@@ -174,6 +203,8 @@ export function BookingPanel({ space }: { space: Space }) {
         company: details.company || undefined,
         purpose: details.purpose || undefined,
         message: details.message || undefined,
+        acceptTerms: acceptedTerms,
+        signature,
       });
 
       setResult({ booking: created.booking, cancelToken: created.cancelToken });
@@ -215,7 +246,8 @@ export function BookingPanel({ space }: { space: Space }) {
 
           <p className="mt-5 text-ink-muted text-sm leading-relaxed">
             Trykk på en dag for å velge den. Trykk på en dag til for å leie flere dager på
-            rad.
+            rad – inntil {space.maxBookingDays}{" "}
+            {space.maxBookingDays === 1 ? "dag" : "dager"} om gangen.
           </p>
 
           <div className="mt-8">
@@ -232,12 +264,16 @@ export function BookingPanel({ space }: { space: Space }) {
                 selection={selection}
                 onSelect={handleSelect}
                 monthsAhead={MONTHS_AHEAD}
+                maxDays={space.maxBookingDays}
               />
             )}
           </div>
         </div>
 
-        <aside className="bg-sand/50 p-7 md:col-span-5 md:p-10">
+        <aside
+          ref={receiptPanel}
+          className="bg-sand/50 p-7 md:col-span-5 md:p-10"
+        >
           {result ? (
             <BookingReceipt
               booking={result.booking}
@@ -258,6 +294,7 @@ export function BookingPanel({ space }: { space: Space }) {
                 quote={quote}
                 quoteError={quoteError}
                 cleaningFee={space.cleaningFee}
+                maxDays={space.maxBookingDays}
               />
 
               <fieldset
@@ -340,6 +377,60 @@ export function BookingPanel({ space }: { space: Space }) {
                   onChange={field("message")}
                   placeholder="Er det noe vi bør vite?"
                 />
+
+                <div className="flex items-start gap-3 pt-1">
+                  <input
+                    id="accept-terms"
+                    type="checkbox"
+                    required
+                    checked={acceptedTerms}
+                    onChange={(event) => setAcceptedTerms(event.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 cursor-pointer accent-brand"
+                  />
+                  <label
+                    htmlFor="accept-terms"
+                    className="text-ink-muted text-sm leading-relaxed"
+                  >
+                    Jeg har lest og godtar{" "}
+                    <button
+                      type="button"
+                      onClick={() => setTermsOpen(true)}
+                      className="font-medium text-brand-deep underline underline-offset-2 transition-colors hover:text-brand"
+                    >
+                      leievilkårene for {space.name}
+                    </button>
+                    .
+                  </label>
+                </div>
+
+                <div className="pt-1">
+                  <p className="mb-2 text-ink-muted text-sm">Signatur</p>
+                  {signature ? (
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={signature}
+                        alt="Signaturen din"
+                        className="h-14 max-w-40 rounded-sm bg-white object-contain ring-1 ring-ink/10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setTermsOpen(true)}
+                        className="text-ink-muted text-sm underline underline-offset-2 transition-colors hover:text-ink"
+                      >
+                        Endre signatur
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setTermsOpen(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-sm border border-ink/20 border-dashed bg-white px-4 py-4 text-ink-muted text-sm transition-colors hover:border-brand hover:text-ink"
+                    >
+                      <PenLine className="size-4" strokeWidth={1.75} aria-hidden />
+                      Åpne leievilkårene og signer
+                    </button>
+                  )}
+                </div>
               </fieldset>
 
               {error ? (
@@ -350,7 +441,13 @@ export function BookingPanel({ space }: { space: Space }) {
 
               <button
                 type="submit"
-                disabled={!rangeReady || submitting || Boolean(quoteError)}
+                disabled={
+                  !rangeReady ||
+                  submitting ||
+                  Boolean(quoteError) ||
+                  !acceptedTerms ||
+                  !signature
+                }
                 className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-brand px-6 py-3.5 font-medium text-sm text-white transition-colors hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink/20"
               >
                 {submitting ? (
@@ -367,6 +464,21 @@ export function BookingPanel({ space }: { space: Space }) {
           )}
         </aside>
       </div>
+
+      <RentalTermsDialog
+        open={termsOpen}
+        onClose={() => setTermsOpen(false)}
+        space={space}
+        fillIn={{
+          name: `${details.firstName} ${details.lastName}`.trim(),
+          email: details.email.trim(),
+          phone: details.phone.trim(),
+          period: selection?.end ? { start: selection.start, end: selection.end } : null,
+          total: quote?.total ?? null,
+        }}
+        signature={signature}
+        onSignature={setSignature}
+      />
     </div>
   );
 }
@@ -376,11 +488,13 @@ function Summary({
   quote,
   quoteError,
   cleaningFee,
+  maxDays,
 }: {
   selection: Selection | null;
   quote: Quote | null;
   quoteError: string | null;
   cleaningFee: number;
+  maxDays: number;
 }) {
   if (!selection) {
     return (
@@ -397,7 +511,7 @@ function Summary({
         <CalendarDays className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
         Trykk på samme dag én gang til for å leie bare{" "}
         {formatRange(selection.start, selection.start)}, eller velg en senere dag for å
-        leie flere dager.
+        leie inntil {maxDays} dager på rad.
       </p>
     );
   }

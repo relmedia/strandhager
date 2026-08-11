@@ -63,6 +63,12 @@ export class UpdateSpaceDto {
   @Max(365)
   noticeDays?: number;
 
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  maxBookingDays?: number;
+
   /** When present, replaces the whole price list. */
   @IsOptional()
   @IsArray()

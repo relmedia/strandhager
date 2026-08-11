@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  Equals,
   IsEmail,
   IsInt,
   IsOptional,
@@ -76,4 +77,19 @@ export class CreateBookingDto {
   @IsString()
   @MaxLength(2000)
   message?: string;
+
+  /** The rental terms must be ticked; the moment is stored as proof. */
+  @Equals(true, { message: 'Du må godta leievilkårene før du kan booke' })
+  acceptTerms!: boolean;
+
+  /**
+   * The hand-drawn signature as a PNG data URL. A signed 700x140 canvas is
+   * usually 5-30 kB of base64, so the cap leaves plenty of headroom without
+   * letting anyone stuff megabytes into the column.
+   */
+  @Matches(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, {
+    message: 'Du må signere leievilkårene før du kan booke',
+  })
+  @MaxLength(200_000, { message: 'Signaturen er for stor. Prøv på nytt.' })
+  signature!: string;
 }

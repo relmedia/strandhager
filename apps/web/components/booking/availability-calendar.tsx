@@ -28,6 +28,8 @@ type CalendarProps = {
   onSelect: (date: IsoDate) => void;
   /** How many months of calendar exist, counted from the current month. */
   monthsAhead: number;
+  /** The longest range that may be picked, in days. */
+  maxDays: number;
 };
 
 export function AvailabilityCalendar({
@@ -37,6 +39,7 @@ export function AvailabilityCalendar({
   selection,
   onSelect,
   monthsAhead,
+  maxDays,
 }: CalendarProps) {
   const firstMonth = startOfMonth(availability?.minDate ?? month);
   const lastMonth = addMonths(firstMonth, monthsAhead - 1);
@@ -80,6 +83,7 @@ export function AvailabilityCalendar({
         availability={availability}
         selection={selection}
         onSelect={onSelect}
+        maxDays={maxDays}
       />
 
       <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-ink-muted text-xs">
@@ -110,6 +114,8 @@ type DayState =
   /** A weekday with no price, so it is never on offer. */
   | "closed"
   | "past"
+  /** Too far from the chosen start day: the range would exceed the limit. */
+  | "tooFar"
   | "selected"
   | "edge";
 
@@ -118,7 +124,11 @@ function MonthGrid({
   availability,
   selection,
   onSelect,
-}: Pick<CalendarProps, "month" | "availability" | "selection" | "onSelect">) {
+  maxDays,
+}: Pick<
+  CalendarProps,
+  "month" | "availability" | "selection" | "onSelect" | "maxDays"
+>) {
   const days = useMemo(() => eachDay(month, endOfMonth(month)), [month]);
   const booked = useMemo(
     () => new Set(availability?.bookedDates ?? []),
@@ -163,8 +173,17 @@ function MonthGrid({
           <DayCell
             key={date}
             date={date}
-            state={dayState(date, availability, booked, closedWeekdays, closedDates, selection)}
+            state={dayState(
+              date,
+              availability,
+              booked,
+              closedWeekdays,
+              closedDates,
+              selection,
+              maxDays,
+            )}
             onSelect={onSelect}
+            maxDays={maxDays}
           />
         ))}
       </div>
@@ -179,6 +198,7 @@ function dayState(
   closedWeekdays: Set<number>,
   closedDates: Set<IsoDate>,
   selection: Selection | null,
+  maxDays: number,
 ): DayState {
   // Until the booked days are known, no day may be picked: an already taken
   // day would otherwise look free for as long as the request takes.
@@ -199,6 +219,16 @@ function dayState(
   if (closedDates.has(date)) return "blocked";
   if (daysBetween(availability.minDate, date) < 0) return "past";
 
+  // While the guest is picking an end day, everything past the longest
+  // allowed range is off the table. Days before the start stay pickable,
+  // since clicking one simply restarts the selection there.
+  if (
+    selection?.end === null &&
+    daysBetween(selection.start, date) >= maxDays
+  ) {
+    return "tooFar";
+  }
+
   return "available";
 }
 
@@ -212,29 +242,40 @@ const CELL_STYLES: Record<DayState, string> = {
   blocked: "border border-ink/25 border-dashed bg-transparent text-ink-muted/40",
   closed: "bg-transparent text-ink-muted/30",
   past: "bg-transparent text-ink-muted/30",
+  tooFar: "bg-transparent text-ink-muted/30 ring-1 ring-ink/5",
 };
 
-const UNAVAILABLE: DayState[] = ["loading", "booked", "blocked", "closed", "past"];
-
-/** How each unavailable day is read out; anything else can simply be picked. */
-const DAY_HINTS: Partial<Record<DayState, string>> = {
-  booked: "opptatt",
-  blocked: "stengt",
-  closed: "ikke til leie",
-  past: "for tidlig å booke",
-};
+const UNAVAILABLE: DayState[] = [
+  "loading",
+  "booked",
+  "blocked",
+  "closed",
+  "past",
+  "tooFar",
+];
 
 function DayCell({
   date,
   state,
   onSelect,
+  maxDays,
 }: {
   date: IsoDate;
   state: DayState;
   onSelect: (date: IsoDate) => void;
+  maxDays: number;
 }) {
   const disabled = UNAVAILABLE.includes(state);
   const label = formatFullDay(date);
+
+  /** How each unavailable day is read out; anything else can simply be picked. */
+  const hints: Partial<Record<DayState, string>> = {
+    booked: "opptatt",
+    blocked: "stengt",
+    closed: "ikke til leie",
+    past: "for tidlig å booke",
+    tooFar: `utenfor grensen på ${maxDays} dager`,
+  };
 
   return (
     <button
@@ -242,8 +283,9 @@ function DayCell({
       disabled={disabled}
       onClick={() => onSelect(date)}
       aria-hidden={state === "loading"}
-      aria-label={`${label} – ${DAY_HINTS[state] ?? "velg denne dagen"}`}
+      aria-label={`${label} – ${hints[state] ?? "velg denne dagen"}`}
       aria-pressed={state === "edge" || state === "selected"}
+      title={state === "tooFar" ? `Maks ${maxDays} dager per booking` : undefined}
       className={`aspect-square rounded-[4px] text-sm transition-all duration-150 disabled:cursor-not-allowed ${CELL_STYLES[state]}`}
     >
       {Number(date.slice(8))}
@@ -256,6 +298,7 @@ export function nextSelection(
   current: Selection | null,
   date: IsoDate,
   unavailable: Set<IsoDate>,
+  maxDays: number,
 ): Selection {
   // Nothing chosen yet, or a complete range is being replaced.
   if (!current || current.end !== null) {
@@ -263,6 +306,12 @@ export function nextSelection(
   }
 
   if (daysBetween(current.start, date) < 0) {
+    return { start: date, end: null };
+  }
+
+  // Longer than the house rules allow; the calendar disables these days, so
+  // this is only a backstop against stale state.
+  if (daysBetween(current.start, date) >= maxDays) {
     return { start: date, end: null };
   }
 
