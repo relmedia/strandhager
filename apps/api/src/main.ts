@@ -19,9 +19,14 @@ async function bootstrap() {
     origin: [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://strandhager-web.vercel.app',
+      'https://strandhager-admin.vercel.app',
       process.env.WEB_ORIGIN,
       process.env.ADMIN_ORIGIN,
-    ].filter(Boolean) as string[],
+    ]
+      .filter((origin): origin is string => Boolean(origin))
+      // Origins never carry a trailing slash; forgive it in the env values.
+      .map((origin) => origin.replace(/\/+$/, '')),
   });
 
   const port = Number(process.env.PORT ?? 4000);
