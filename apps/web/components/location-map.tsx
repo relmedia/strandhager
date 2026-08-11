@@ -7,10 +7,18 @@ import { useEffect, useRef } from "react";
 import type * as Leaflet from "leaflet";
 import { Minus, Plus } from "lucide-react";
 
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+/**
+ * The same Norkart WebAtlas service the admin's parcel map runs on, but on the
+ * standard cartography layer rather than the aerial photo, so the section
+ * keeps its light look with blue water. The key travels in the tile URL and
+ * cannot be hidden from the browser; Norkart restricts it on their side.
+ */
+const NORKART_KEY =
+  process.env.NEXT_PUBLIC_NORKART_API_KEY ?? "b8e36d51-119a-423b-b156-d744d54123d5";
 
-const ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bidragsytere &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const TILE_URL = `https://waapi.webatlas.no/maptiles/tiles/webatlas-standard-vektor/wa_grid/{z}/{x}/{y}.png?api_key=${NORKART_KEY}`;
+
+const ATTRIBUTION = "Kart: &copy; Norkart";
 
 /**
  * A calm, light-toned map centred on the gardens, with a pulsing brand marker.
@@ -37,9 +45,11 @@ export function LocationMap({ lat, lng }: { lat: number; lng: number }) {
         scrollWheelZoom: false,
       });
 
+      // Drop the "Leaflet" plug in the corner; only Norkart's credit is due.
+      instance.attributionControl.setPrefix(false);
+
       L.tileLayer(TILE_URL, {
         attribution: ATTRIBUTION,
-        subdomains: "abcd",
         maxZoom: 20,
       }).addTo(instance);
 
