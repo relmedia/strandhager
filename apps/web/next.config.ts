@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   images: {
     // 90 is used by the fullscreen gallery lightbox.
     qualities: [75, 90],
+    // Admin uploads land in Vercel Blob in production.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+    ],
   },
 };
 

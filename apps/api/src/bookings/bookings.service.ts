@@ -126,7 +126,7 @@ export class BookingsService {
       { isolationLevel: 'Serializable' },
     );
 
-    this.notifications.notifyBookingRequested(toMail(booking));
+    await this.notifications.notifyBookingRequested(toMail(booking));
 
     return {
       booking: toGuestView(booking),
@@ -179,7 +179,7 @@ export class BookingsService {
       include: INCLUDE,
     });
 
-    this.notifications.notifyBookingCancelledByGuest(toMail(updated));
+    await this.notifications.notifyBookingCancelledByGuest(toMail(updated));
 
     return { booking: toGuestView(updated), cancellable: false };
   }
@@ -318,7 +318,7 @@ export class BookingsService {
 
     // The guest hears about it when the dashboard settles their booking.
     if (dto.status !== undefined && dto.status !== existing.status && isDecision(dto.status)) {
-      this.notifications.notifyBookingDecision(toMail(updated), dto.status);
+      await this.notifications.notifyBookingDecision(toMail(updated), dto.status);
     }
 
     return toAdminView(updated);

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { basename, extname, join, resolve } from 'node:path';
 import {
   BadRequestException,
   Controller,
@@ -11,16 +11,30 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
+import { list, put } from '@vercel/blob';
 
-// Media lives in the public web app so Next.js serves it directly.
+// In local development media lives in the public web app so Next.js serves
+// it directly. In production the API has no shared disk, so files go to
+// Vercel Blob instead (enabled by BLOB_READ_WRITE_TOKEN).
 const PUBLIC_DIR =
   process.env.WEB_PUBLIC_DIR ?? resolve(process.cwd(), '../web/public');
 const UPLOADS_DIR = process.env.UPLOADS_DIR ?? join(PUBLIC_DIR, 'uploads');
 const DOCUMENTS_DIR = join(PUBLIC_DIR, 'dokumenter');
 
+const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
 const ALLOWED = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif']);
 const ALLOWED_DOCUMENTS = new Set(['.pdf']);
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
+  '.pdf': 'application/pdf',
+};
 
 const isDocument = (req: { query?: Record<string, unknown> }) =>
   req.query?.kind === 'document';
@@ -58,9 +72,9 @@ type LibraryFile = {
 
 @Controller('media')
 export class MediaController {
-  /** Lists image files already on disk so the admin can re-add removed ones. */
+  /** Lists images already stored so the admin can re-add removed ones. */
   @Get('library')
-  library(@Query('folder') folder = 'alle'): { files: LibraryFile[] } {
+  async library(@Query('folder') folder = 'alle'): Promise<{ files: LibraryFile[] }> {
     const folders = LIBRARY_FOLDERS[folder];
 
     if (!folders) {
@@ -85,6 +99,16 @@ export class MediaController {
         }));
     });
 
+    // Blob uploads show up under "uploads" (and thereby "alle").
+    if (useBlob() && folders.includes('uploads')) {
+      const { blobs } = await list({ prefix: 'uploads/' });
+      for (const blob of blobs) {
+        const name = basename(blob.pathname);
+        if (!ALLOWED.has(extname(name).toLowerCase())) continue;
+        files.push({ url: blob.url, name, size: blob.size });
+      }
+    }
+
     files.sort((a, b) => a.name.localeCompare(b.name, 'nb'));
 
     return { files };
@@ -94,22 +118,7 @@ export class MediaController {
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (req, _file, cb) => {
-          const dir = isDocument(req) ? DOCUMENTS_DIR : UPLOADS_DIR;
-          if (!existsSync(dir)) {
-            mkdirSync(dir, { recursive: true });
-          }
-          cb(null, dir);
-        },
-        filename: (req, file, cb) => {
-          if (isDocument(req)) {
-            cb(null, documentFilename(file.originalname));
-            return;
-          }
-          cb(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 25 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname).toLowerCase();
@@ -118,10 +127,10 @@ export class MediaController {
       },
     }),
   )
-  upload(
+  async upload(
     @UploadedFile() file?: Express.Multer.File,
     @Query('kind') kind?: string,
-  ) {
+  ): Promise<{ url: string }> {
     if (!file) {
       throw new BadRequestException(
         kind === 'document'
@@ -130,7 +139,28 @@ export class MediaController {
       );
     }
 
-    const folder = kind === 'document' ? 'dokumenter' : 'uploads';
-    return { url: `/${folder}/${file.filename}` };
+    const document = kind === 'document';
+    const ext = extname(file.originalname).toLowerCase();
+    const filename = document
+      ? documentFilename(file.originalname)
+      : `${randomUUID()}${ext}`;
+    const folder = document ? 'dokumenter' : 'uploads';
+
+    if (useBlob()) {
+      const blob = await put(`${folder}/${filename}`, file.buffer, {
+        access: 'public',
+        contentType: CONTENT_TYPES[ext],
+        addRandomSuffix: false,
+      });
+      return { url: blob.url };
+    }
+
+    const dir = document ? DOCUMENTS_DIR : UPLOADS_DIR;
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    writeFileSync(join(dir, filename), file.buffer);
+
+    return { url: `/${folder}/${filename}` };
   }
 }

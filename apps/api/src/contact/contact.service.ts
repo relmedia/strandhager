@@ -32,7 +32,7 @@ export class ContactService {
       },
     });
 
-    this.notifications.notifyContactMessage(entry);
+    await this.notifications.notifyContactMessage(entry);
 
     // The sender only needs to know it arrived.
     return { received: true, name: entry.name };

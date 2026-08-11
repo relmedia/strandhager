@@ -81,7 +81,7 @@ export class WaitlistService {
 
     const position = await this.placeOf(entry.id);
 
-    this.notifications.notifyWaitlistJoined({
+    await this.notifications.notifyWaitlistJoined({
       firstName: entry.firstName,
       lastName: entry.lastName,
       email: entry.email,

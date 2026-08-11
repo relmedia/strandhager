@@ -50,7 +50,9 @@ export type ContactMail = {
  * board can manage them under Innstillinger → E-post.
  *
  * Domain code fires mail through the notify* methods, which never throw:
- * a booking must go through even when the mail bounces.
+ * a booking must go through even when the mail bounces. They do return
+ * promises that callers should await, because on serverless hosts the
+ * process can be frozen right after the response is sent.
  */
 @Injectable()
 export class NotificationsService {
@@ -116,10 +118,10 @@ export class NotificationsService {
   }
 
   /** Confirmation to the guest, and a heads-up to the board. */
-  notifyBookingRequested(booking: BookingMail): void {
+  async notifyBookingRequested(booking: BookingMail): Promise<void> {
     const facts = bookingFacts(booking);
 
-    this.fire({
+    const guest = this.fire({
       to: booking.guestEmail,
       subject: `Vi har mottatt bookingforespørselen din (${booking.reference})`,
       heading: `Takk, ${booking.guestName}!`,
@@ -136,7 +138,7 @@ export class NotificationsService {
         : undefined,
     });
 
-    this.fireToBoard({
+    const board = this.fireToBoard({
       subject: `Ny bookingforespørsel: ${booking.spaceName} ${formatDate(booking.startDate)}`,
       heading: 'Ny bookingforespørsel',
       lines: [
@@ -145,13 +147,15 @@ export class NotificationsService {
       facts,
       replyTo: booking.guestEmail,
     });
+
+    await Promise.all([guest, board]);
   }
 
   /** Sent when the dashboard confirms, declines or calls off a booking. */
-  notifyBookingDecision(
+  async notifyBookingDecision(
     booking: BookingMail,
     decision: 'CONFIRMED' | 'DECLINED' | 'CANCELLED',
-  ): void {
+  ): Promise<void> {
     const facts = bookingFacts(booking);
 
     const content: Record<typeof decision, { subject: string; heading: string; lines: string[] }> =
@@ -182,14 +186,14 @@ export class NotificationsService {
         },
       };
 
-    this.fire({ to: booking.guestEmail, ...content[decision], facts });
+    await this.fire({ to: booking.guestEmail, ...content[decision], facts });
   }
 
   /** The guest used their own cancellation link; the board should know. */
-  notifyBookingCancelledByGuest(booking: BookingMail): void {
-    this.notifyBookingDecision(booking, 'CANCELLED');
+  async notifyBookingCancelledByGuest(booking: BookingMail): Promise<void> {
+    const guest = this.notifyBookingDecision(booking, 'CANCELLED');
 
-    this.fireToBoard({
+    const board = this.fireToBoard({
       subject: `Avbestilt av gjesten: ${booking.spaceName} ${formatDate(booking.startDate)}`,
       heading: 'En booking er avbestilt',
       lines: [
@@ -198,16 +202,18 @@ export class NotificationsService {
       facts: bookingFacts(booking),
       replyTo: booking.guestEmail,
     });
+
+    await Promise.all([guest, board]);
   }
 
   /** Someone joined the waitlist from the website. */
-  notifyWaitlistJoined(entry: {
+  async notifyWaitlistJoined(entry: {
     firstName: string;
     lastName: string;
     email: string;
     position: number;
-  }): void {
-    this.fire({
+  }): Promise<void> {
+    const member = this.fire({
       to: entry.email,
       subject: 'Du står på ventelisten for parsell',
       heading: `Velkommen, ${entry.firstName}!`,
@@ -217,7 +223,7 @@ export class NotificationsService {
       ],
     });
 
-    this.fireToBoard({
+    const board = this.fireToBoard({
       subject: `Ny på ventelisten: ${entry.firstName} ${entry.lastName}`,
       heading: 'Ny på ventelisten',
       lines: [
@@ -225,11 +231,13 @@ export class NotificationsService {
       ],
       replyTo: entry.email,
     });
+
+    await Promise.all([member, board]);
   }
 
   /** A message came in through the contact form. */
-  notifyContactMessage(contact: ContactMail): void {
-    this.fireToBoard({
+  async notifyContactMessage(contact: ContactMail): Promise<void> {
+    await this.fireToBoard({
       subject: contact.subject
         ? `Henvendelse: ${contact.subject}`
         : `Ny henvendelse fra ${contact.name}`,
@@ -250,16 +258,16 @@ export class NotificationsService {
     return this.prisma.mailSettings.findUnique({ where: { id: SETTINGS_ID } });
   }
 
-  /** Fire and forget: domain code must never fail because mail did. */
-  private fire(mail: OutgoingMail): void {
-    void this.send(mail).catch((cause) => {
+  /** Never rejects: domain code must never fail because mail did. */
+  private fire(mail: OutgoingMail): Promise<void> {
+    return this.send(mail).catch((cause) => {
       this.logger.error(`Kunne ikke sende «${mail.subject}» til ${mail.to}`, cause);
     });
   }
 
   /** Same, but addressed to the board's notification address. */
-  private fireToBoard(mail: Omit<OutgoingMail, 'to'>): void {
-    void this.load()
+  private fireToBoard(mail: Omit<OutgoingMail, 'to'>): Promise<void> {
+    return this.load()
       .then((settings) => {
         if (!settings?.notifyEmail) return;
         return this.send({ ...mail, to: settings.notifyEmail }, settings);
