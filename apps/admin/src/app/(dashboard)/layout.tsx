@@ -12,6 +12,7 @@ import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AUTH_LOGIN_PATH } from "@/lib/auth";
+import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { auth } from "@/lib/auth/server";
 import { SIDEBAR_COLLAPSIBLE_VALUES, SIDEBAR_VARIANT_VALUES } from "@/lib/preferences/layout";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,11 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
 
   if (!session?.user) {
     redirect(AUTH_LOGIN_PATH);
+  }
+
+  // Google sign-in lets anyone authenticate; only listed addresses get in.
+  if (!isAllowedEmail(session.user.email)) {
+    redirect("/api/no-access");
   }
 
   const user = session.user;

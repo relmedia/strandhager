@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { AUTH_LOGIN_PATH } from "@/lib/auth";
+import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { auth } from "@/lib/auth/server";
 
 function mapAuthError(error: { message?: string; code?: string } | null | undefined) {
@@ -39,6 +40,10 @@ export async function signInWithEmail(formData: FormData) {
 
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+
+  if (!isAllowedEmail(email)) {
+    return { error: "Denne e-postadressen har ikke tilgang til dashbordet." };
+  }
 
   const { error } = await auth.signIn.email({
     email,

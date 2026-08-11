@@ -65,6 +65,7 @@ export function LoginForm() {
 
   const redirectTo = searchParams.get("redirectTo");
   const destination = redirectTo?.startsWith("/") ? redirectTo : AUTH_HOME_PATH;
+  const denied = searchParams.get("feil") === "ingen-tilgang";
 
   const onSubmit = async (data: LoginFormValues) => {
     const formData = new FormData();
@@ -104,6 +105,12 @@ export function LoginForm() {
 
   return (
     <div className="flex flex-col gap-4">
+      {denied ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
+          Kontoen din har ikke tilgang til dashbordet. Be styret om å legge til
+          e-postadressen din, eller logg inn med en annen konto.
+        </div>
+      ) : null}
       <Button
         type="button"
         variant="outline"
