@@ -47,6 +47,15 @@
   --color-destructive: #b91c1c;
 }
 
+/* Tailwind v4 leaves buttons with the default arrow cursor; restore the
+   pointer everywhere so clickable things read as clickable. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }
