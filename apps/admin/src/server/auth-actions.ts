@@ -46,6 +46,13 @@ export async function startLogin(
     const body = await response.json().catch(() => null);
 
     if (!response.ok) {
+      // A crashed or misconfigured API is not the user's fault — don't blame the password.
+      if (response.status >= 500 || body === null) {
+        return {
+          ok: false,
+          error: "Innloggingstjenesten svarte med en feil. Prøv igjen om litt.",
+        };
+      }
       return { ok: false, error: readMessage(body, "Feil e-post eller passord.") };
     }
 
