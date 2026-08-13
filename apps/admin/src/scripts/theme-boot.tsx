@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Boot script that reads user preference values (theme mode, theme preset,
  * content layout, navbar style) from cookies or localStorage based on the
@@ -5,10 +7,16 @@
  *
  * Runs early in <head> to apply the correct data attributes before hydration,
  * preventing layout or theme flicker and keeping RootLayout fully static.
+ *
+ * A memoized client component: after hydration it never re-renders, so React
+ * never recreates the <script> element on the client (React 19 warns about
+ * client-rendered scripts, e.g. after router.refresh()).
  */
+import { memo } from "react";
+
 import { PREFERENCE_DEFAULTS, PREFERENCE_PERSISTENCE } from "@/lib/preferences/preferences-config";
 
-export function ThemeBootScript() {
+function ThemeBootScriptImpl() {
   const persistence = JSON.stringify({
     theme_mode: PREFERENCE_PERSISTENCE.theme_mode,
     theme_preset: PREFERENCE_PERSISTENCE.theme_preset,
@@ -109,5 +117,7 @@ export function ThemeBootScript() {
   `;
 
   /* biome-ignore lint/security/noDangerouslySetInnerHtml: required for pre-hydration boot script */
-  return <script dangerouslySetInnerHTML={{ __html: code }} />;
+  return <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: code }} />;
 }
+
+export const ThemeBootScript = memo(ThemeBootScriptImpl);

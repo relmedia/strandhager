@@ -1,7 +1,6 @@
 /**
- * Only e-mail addresses listed in ADMIN_ALLOWED_EMAILS (comma-separated) may
- * use the dashboard. Anyone can authenticate with Neon Auth — also strangers
- * with a Google account — so access is decided here, not at sign-in.
+ * Extra gate on top of the password + code login. Only addresses listed in
+ * ADMIN_ALLOWED_EMAILS (comma-separated) may use the dashboard.
  *
  * While the variable is unset the gate stays open, so nobody gets locked out
  * before the list is configured.

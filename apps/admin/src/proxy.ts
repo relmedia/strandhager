@@ -1,35 +1,29 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth/server";
-
-const neonAuthMiddleware = auth.middleware({
-  loginUrl: "/login",
-});
+import { AUTH_LOGIN_PATH } from "@/lib/auth";
+import { readSession, SESSION_COOKIE } from "@/lib/auth/session";
 
 /**
- * Neon Auth's middleware (0.4.2-beta) forwards the incoming request method to
- * the upstream `get-session` endpoint, which only accepts GET. Server actions
- * POST to the page URL, so without this the session check 404s and the
- * middleware redirects the action to /login ("An unexpected response was
- * received from the server"). Coerce the session check to GET as a workaround.
+ * Protects dashboard routes. The JWT lives in an httpOnly cookie set after
+ * the one-time login code is confirmed.
  */
 export default async function proxy(request: NextRequest) {
-  if (request.method === "GET") {
-    return neonAuthMiddleware(request);
+  const session = await readSession(request.cookies.get(SESSION_COOKIE)?.value);
+
+  if (!session) {
+    const login = new URL(AUTH_LOGIN_PATH, request.url);
+    const next = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+    if (next !== AUTH_LOGIN_PATH) {
+      login.searchParams.set("redirectTo", next);
+    }
+    return NextResponse.redirect(login);
   }
 
-  const asGet = new NextRequest(new URL(request.url), {
-    headers: request.headers,
-  });
-  return neonAuthMiddleware(asGet);
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Protect all app routes except Next internals, static assets, auth API,
-     * and the login page itself.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|login|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|login|api/no-access|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

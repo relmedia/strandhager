@@ -32,7 +32,7 @@ export default function LoginPage() {
           <div className="space-y-4 text-center">
             <div className="font-medium text-[#20261c] tracking-tight">Logg inn</div>
             <div className="mx-auto max-w-xl text-[#47503f]">
-              Logg inn med Google eller e-post for å få tilgang til administrasjonspanelet.
+              Logg inn med e-post og passord. Vi sender en engangskode du må bekrefte.
             </div>
           </div>
           <div className="space-y-4">

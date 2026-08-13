@@ -12,6 +12,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Tailwind v4 leaves buttons with the default arrow cursor; restore the
+   pointer everywhere so clickable things read as clickable. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

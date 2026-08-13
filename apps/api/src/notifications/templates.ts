@@ -1,14 +1,19 @@
 /**
  * One shared layout for every email the association sends, so they all look
- * the same: a green header, a heading, some paragraphs, and optionally a
- * small table of facts (dates, prices, references).
+ * the same: the logo in the header, a heading, some paragraphs, and optionally
+ * a small table of facts (dates, prices, references).
  */
 
 const BRAND = '#3f9a28';
-const BRAND_DEEP = '#2f7420';
 const INK = '#1f2a20';
 const MUTED = '#5c6b5e';
 const SAND = '#f4f6ef';
+
+const SITE_URL = (process.env.WEB_URL ?? process.env.WEB_ORIGIN ?? 'http://localhost:3000').replace(
+  /\/+$/,
+  '',
+);
+const LOGO_URL = `${SITE_URL}/images/logo.png`;
 
 export type EmailContent = {
   heading: string;
@@ -16,11 +21,22 @@ export type EmailContent = {
   lines: string[];
   /** Label/value rows shown as a small table under the paragraphs. */
   facts?: [string, string][];
+  /** A one-time code shown large in its own box, e.g. a login code. */
+  code?: string;
+  /** Label above the code box. Defaults to "Kode". */
+  codeLabel?: string;
   /** A button under the text, e.g. the guest's cancellation link. */
   action?: { label: string; url: string };
 };
 
-export function renderEmail({ heading, lines, facts, action }: EmailContent): string {
+export function renderEmail({
+  heading,
+  lines,
+  facts,
+  code,
+  codeLabel,
+  action,
+}: EmailContent): string {
   const paragraphs = lines
     .map(
       (line) =>
@@ -41,6 +57,17 @@ export function renderEmail({ heading, lines, facts, action }: EmailContent): st
       </table>`
     : '';
 
+  const codeBox = code
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 8px;width:100%;">
+        <tr>
+          <td align="center" style="padding:22px 16px;background:${SAND};border:1px solid #d5ddd0;border-radius:10px;">
+            <p style="margin:0 0 8px;color:${MUTED};font-size:16px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;">${escapeHtml(codeLabel ?? 'Kode')}</p>
+            <p style="margin:0;color:${INK};font-size:${code.length <= 8 ? '36px' : '24px'};line-height:1.2;font-weight:700;letter-spacing:${code.length <= 8 ? '0.28em' : '0.06em'};font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;">${escapeHtml(code)}</p>
+          </td>
+        </tr>
+      </table>`
+    : '';
+
   const button = action
     ? `<p style="margin:24px 0 6px;">
         <a href="${escapeAttribute(action.url)}"
@@ -58,14 +85,26 @@ export function renderEmail({ heading, lines, facts, action }: EmailContent): st
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden;">
             <tr>
-              <td style="background:${BRAND_DEEP};padding:20px 32px;">
-                <span style="color:#ffffff;font-size:16px;font-weight:700;letter-spacing:0.4px;">Ølberg strandhager</span>
+              <td align="center" style="padding:24px 32px 8px;background:#ffffff;">
+                <a href="${escapeAttribute(SITE_URL)}" style="text-decoration:none;color:${INK};">
+                  <img
+                    src="${escapeAttribute(LOGO_URL)}"
+                    alt="Ølberg strandhager"
+                    width="100"
+                    height="68"
+                    style="display:block;margin:0 auto 10px;border:0;outline:none;height:auto;max-width:100px;"
+                  />
+                </a>
+                <p style="margin:0;color:${INK};font-size:18px;line-height:1.3;font-weight:700;letter-spacing:0.02em;">
+                  Ølberg strandhager
+                </p>
               </td>
             </tr>
             <tr>
               <td style="padding:32px;">
                 <h1 style="margin:0 0 18px;color:${INK};font-size:21px;line-height:1.35;">${escapeHtml(heading)}</h1>
                 ${paragraphs}
+                ${codeBox}
                 ${table}
                 ${button}
               </td>
@@ -86,8 +125,18 @@ export function renderEmail({ heading, lines, facts, action }: EmailContent): st
 }
 
 /** Plain-text fallback for clients that do not render HTML. */
-export function renderText({ heading, lines, facts, action }: EmailContent): string {
+export function renderText({
+  heading,
+  lines,
+  facts,
+  code,
+  codeLabel,
+  action,
+}: EmailContent): string {
   const parts = [heading, '', ...lines];
+  if (code) {
+    parts.push('', `${codeLabel ?? 'Kode'}: ${code}`);
+  }
   if (facts?.length) {
     parts.push('', ...facts.map(([label, value]) => `${label}: ${value}`));
   }

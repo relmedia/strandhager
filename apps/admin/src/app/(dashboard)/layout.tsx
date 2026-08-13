@@ -13,31 +13,34 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AUTH_LOGIN_PATH } from "@/lib/auth";
 import { isAllowedEmail } from "@/lib/auth/allowlist";
-import { auth } from "@/lib/auth/server";
 import { SIDEBAR_COLLAPSIBLE_VALUES, SIDEBAR_VARIANT_VALUES } from "@/lib/preferences/layout";
 import { cn } from "@/lib/utils";
+import { getSession } from "@/server/auth-actions";
 import { getPreference } from "@/server/server-actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const { data: session } = await auth.getSession();
+  const session = await getSession();
 
-  if (!session?.user) {
+  if (!session) {
     redirect(AUTH_LOGIN_PATH);
   }
 
-  // Google sign-in lets anyone authenticate; only listed addresses get in.
-  if (!isAllowedEmail(session.user.email)) {
+  if (!isAllowedEmail(session.email)) {
     redirect("/api/no-access");
   }
 
-  const user = session.user;
+  // Invited users must swap the temporary password before using the dashboard.
+  if (session.mustChangePassword) {
+    redirect("/bytt-passord");
+  }
+
   const currentUser = {
-    id: user.id,
-    name: user.name || user.email?.split("@")[0] || "Bruker",
-    email: user.email ?? "",
-    avatar: user.image ?? "",
+    id: session.id,
+    name: session.name || session.email.split("@")[0] || "Bruker",
+    email: session.email,
+    avatar: "",
     role: "Administrator",
   };
 

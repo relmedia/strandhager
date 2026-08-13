@@ -16,6 +16,7 @@ import {
 const SETTINGS_ID = 'mail';
 
 const WEB_URL = process.env.WEB_URL ?? 'http://localhost:3000';
+const ADMIN_URL = (process.env.ADMIN_ORIGIN ?? 'http://localhost:3001').replace(/\/+$/, '');
 
 type OutgoingMail = EmailContent & {
   to: string;
@@ -235,6 +236,71 @@ export class NotificationsService {
     await Promise.all([member, board]);
   }
 
+  /**
+   * One-time login code for the dashboard. Same rule as the test button: if a
+   * Resend key is stored, send. The "Send e-post" switch is not required here,
+   * so a working Resend setup cannot lock the board out of the dashboard.
+   */
+  async notifyLoginCode(email: string, code: string): Promise<LoginMailResult> {
+    const settings = await this.load();
+    if (!settings?.apiKey) {
+      this.logger.warn(`Ingen Resend-nøkkel, hopper over innloggingskode til ${email}`);
+      return { sent: false, configured: false };
+    }
+
+    try {
+      await this.dispatch(settings, {
+        to: email,
+        subject: `${code} er innloggingskoden din`,
+        heading: 'Innloggingskode',
+        lines: [
+          'Bruk denne koden for å fullføre innloggingen til dashbordet. Den er gyldig i 10 minutter.',
+        ],
+        code,
+      });
+      return { sent: true };
+    } catch (cause) {
+      this.logger.error(`Kunne ikke sende innloggingskode til ${email}`, cause);
+      return { sent: false, configured: true, error: readMailError(cause) };
+    }
+  }
+
+  /**
+   * A new admin got an account with a temporary password. Same delivery rule
+   * as the login code: a stored Resend key is enough, the switch is not
+   * required, so account e-mails always go out when they can.
+   */
+  async notifyAdminInvite(
+    email: string,
+    name: string,
+    tempPassword: string,
+  ): Promise<LoginMailResult> {
+    const settings = await this.load();
+    if (!settings?.apiKey) {
+      this.logger.warn(`Ingen Resend-nøkkel, hopper over invitasjon til ${email}`);
+      return { sent: false, configured: false };
+    }
+
+    try {
+      await this.dispatch(settings, {
+        to: email,
+        subject: 'Du har fått tilgang til dashbordet for Ølberg strandhager',
+        heading: `Velkommen, ${name}!`,
+        lines: [
+          'Du har fått en administratorkonto i dashbordet til Ølberg strandhager.',
+          'Logg inn med denne e-postadressen og det midlertidige passordet under. Første gang du logger inn, blir du bedt om å velge ditt eget passord.',
+        ],
+        code: tempPassword,
+        codeLabel: 'Midlertidig passord',
+        action: { label: 'Åpne dashbordet', url: `${ADMIN_URL}/login` },
+      });
+      return { sent: true };
+    } catch (cause) {
+      this.logger.error(`Kunne ikke sende invitasjon til ${email}`, cause);
+      return { sent: false, configured: true, error: readMailError(cause) };
+    }
+  }
+
   /** A message came in through the contact form. */
   async notifyContactMessage(contact: ContactMail): Promise<void> {
     await this.fireToBoard({
@@ -329,4 +395,32 @@ function toView(settings: MailSettings | null) {
     hasApiKey: Boolean(settings?.apiKey),
     apiKeyHint: settings?.apiKey ? `…${settings.apiKey.slice(-4)}` : null,
   };
+}
+
+type LoginMailResult =
+  | { sent: true }
+  | { sent: false; configured: false }
+  | { sent: false; configured: true; error: string };
+
+function readMailError(cause: unknown): string {
+  if (cause instanceof BadRequestException) {
+    const response = cause.getResponse();
+    if (typeof response === 'string' && response.trim()) {
+      return stripResendPrefix(response);
+    }
+    if (response && typeof response === 'object' && 'message' in response) {
+      const { message } = response as { message: unknown };
+      if (typeof message === 'string' && message.trim()) {
+        return stripResendPrefix(message);
+      }
+    }
+  }
+  if (cause instanceof Error && cause.message.trim()) {
+    return stripResendPrefix(cause.message);
+  }
+  return 'Kunne ikke sende innloggingskoden.';
+}
+
+function stripResendPrefix(message: string): string {
+  return message.replace(/^Resend:\s*/i, '').trim();
 }

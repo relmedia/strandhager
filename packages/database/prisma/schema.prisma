@@ -352,3 +352,45 @@ enum ContactStatus {
   /// Answered or otherwise closed.
   HANDLED
 }
+
+/// A dashboard user. Only accounts created by the board can log in; there is
+/// no self-service sign-up.
+model AdminUser {
+  id String @id @default(cuid())
+
+  email String @unique
+  name  String
+  /// bcrypt hash — the password itself is never stored.
+  passwordHash String
+  /// Set for invited users with a temporary password; cleared when they pick their own.
+  mustChangePassword Boolean @default(false)
+  /// When on, logging in also requires a one-time code sent by e-mail.
+  twoFactorEnabled Boolean @default(true)
+
+  challenges LoginChallenge[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// A half-finished login: the password was right, and now we are waiting for
+/// the one-time code that was e-mailed to the user.
+model LoginChallenge {
+  id String @id @default(cuid())
+
+  user   AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  /// bcrypt hash of the 6-digit code, so a database leak reveals nothing.
+  codeHash String
+  /// Codes are short-lived; past this moment the login must start over.
+  expiresAt DateTime
+  /// Wrong guesses so far. The challenge dies after too many.
+  attempts Int @default(0)
+  /// Set when the code is used, so it can never be replayed.
+  consumedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
