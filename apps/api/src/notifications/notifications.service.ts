@@ -320,8 +320,28 @@ export class NotificationsService {
 
   // --- Internals ------------------------------------------------------------
 
-  private load(): Promise<MailSettings | null> {
-    return this.prisma.mailSettings.findUnique({ where: { id: SETTINGS_ID } });
+  /**
+   * Settings from the database, with RESEND_API_KEY from the environment as a
+   * fallback key when none is stored. That way a fresh deployment can send
+   * login codes before anyone has been able to log in and save a key.
+   */
+  private async load(): Promise<MailSettings | null> {
+    const settings = await this.prisma.mailSettings.findUnique({
+      where: { id: SETTINGS_ID },
+    });
+
+    const envKey = process.env.RESEND_API_KEY?.trim();
+    if (settings?.apiKey || !envKey) return settings;
+
+    return {
+      id: SETTINGS_ID,
+      apiKey: envKey,
+      fromName: settings?.fromName ?? 'Ølberg strandhager',
+      fromEmail: settings?.fromEmail ?? 'onboarding@resend.dev',
+      notifyEmail: settings?.notifyEmail ?? null,
+      enabled: settings?.enabled ?? false,
+      updatedAt: settings?.updatedAt ?? new Date(),
+    };
   }
 
   /** Never rejects: domain code must never fail because mail did. */
