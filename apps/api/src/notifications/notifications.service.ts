@@ -18,10 +18,24 @@ const SETTINGS_ID = 'mail';
 const WEB_URL = process.env.WEB_URL ?? 'http://localhost:3000';
 const ADMIN_URL = (process.env.ADMIN_ORIGIN ?? 'http://localhost:3001').replace(/\/+$/, '');
 
+export type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  /** Set to show the attachment inline in the HTML via <img src="cid:…">. */
+  contentId?: string;
+};
+
+/** A Vipps payment to embed in a mail: the link plus an optional QR PNG. */
+export type PaymentMail = {
+  url: string;
+  qr?: Buffer;
+};
+
 type OutgoingMail = EmailContent & {
   to: string;
   subject: string;
   replyTo?: string;
+  attachments?: MailAttachment[];
 };
 
 export type BookingMail = {
@@ -156,8 +170,22 @@ export class NotificationsService {
   async notifyBookingDecision(
     booking: BookingMail,
     decision: 'CONFIRMED' | 'DECLINED' | 'CANCELLED',
+    extras?: { attachments?: MailAttachment[]; payment?: PaymentMail },
   ): Promise<void> {
     const facts = bookingFacts(booking);
+    const attachments = [...(extras?.attachments ?? [])];
+
+    // The QR travels as an inline attachment the HTML refers to by cid.
+    const qrCid = extras?.payment?.qr ? 'vipps-qr' : undefined;
+    if (extras?.payment?.qr && qrCid) {
+      attachments.push({
+        filename: 'vipps-qr.png',
+        content: extras.payment.qr,
+        contentId: qrCid,
+      });
+    }
+
+    const payment = extras?.payment ? { url: extras.payment.url, qrCid } : undefined;
 
     const content: Record<typeof decision, { subject: string; heading: string; lines: string[] }> =
       {
@@ -166,7 +194,12 @@ export class NotificationsService {
           heading: 'Bookingen er bekreftet',
           lines: [
             `${booking.spaceName} er nå reservert for deg. Vi gleder oss til å ta imot dere!`,
-            'Informasjon om betaling får du fra oss på e-post.',
+            ...(extras?.attachments?.length
+              ? ['Leieavtalen med leievilkårene ligger vedlagt som PDF.']
+              : []),
+            payment
+              ? 'Leien betaler du med Vipps: bruk knappen under, eller skann QR-koden med mobilkameraet eller Vipps-appen.'
+              : 'Informasjon om betaling får du fra oss på e-post.',
           ],
         },
         DECLINED: {
@@ -187,7 +220,13 @@ export class NotificationsService {
         },
       };
 
-    await this.fire({ to: booking.guestEmail, ...content[decision], facts });
+    await this.fire({
+      to: booking.guestEmail,
+      ...content[decision],
+      facts,
+      payment,
+      attachments: attachments.length ? attachments : undefined,
+    });
   }
 
   /** The guest used their own cancellation link; the board should know. */
@@ -385,6 +424,11 @@ export class NotificationsService {
       replyTo: mail.replyTo,
       html: renderEmail(mail),
       text: renderText(mail),
+      attachments: mail.attachments?.map((attachment) => ({
+        filename: attachment.filename,
+        content: attachment.content,
+        contentId: attachment.contentId,
+      })),
     });
 
     if (error) {

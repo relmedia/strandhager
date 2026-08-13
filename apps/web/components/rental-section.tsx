@@ -172,11 +172,14 @@ export function RentalSection({ utleie, contact, space }: RentalSectionProps) {
           {space ? (
             <>
               <PriceCards space={space} />
-              <BookingPanel space={space} />
+              <BookingPanel space={space} contact={contact.booking} />
             </>
           ) : null}
 
-          <BookingContact contact={contact} fallback={!space} />
+          {/* With booking closed the contact details sit inside the panel instead. */}
+          {space === null || space.active ? (
+            <BookingContact contact={contact} fallback={!space} />
+          ) : null}
         </div>
       </div>
     </SectionReveal>

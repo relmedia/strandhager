@@ -12,6 +12,7 @@ import { HealthModule } from './health/health.module';
 import { MediaModule } from './media/media.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ParcelsModule } from './parcels/parcels.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SiteContentModule } from './site-content/site-content.module';
@@ -33,6 +34,7 @@ import { SpacesModule } from './spaces/spaces.module';
     AvailabilityModule,
     BlackoutsModule,
     ParcelsModule,
+    PaymentsModule,
     PricingModule,
     CmsModule,
     SiteContentModule,

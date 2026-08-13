@@ -30,6 +30,11 @@ type CalendarProps = {
   monthsAhead: number;
   /** The longest range that may be picked, in days. */
   maxDays: number;
+  /**
+   * Online booking is closed: the calendar only shows which days are free
+   * and which are taken. Months can still be browsed, days cannot be picked.
+   */
+  readOnly?: boolean;
 };
 
 export function AvailabilityCalendar({
@@ -40,6 +45,7 @@ export function AvailabilityCalendar({
   onSelect,
   monthsAhead,
   maxDays,
+  readOnly = false,
 }: CalendarProps) {
   const firstMonth = startOfMonth(availability?.minDate ?? month);
   const lastMonth = addMonths(firstMonth, monthsAhead - 1);
@@ -84,11 +90,12 @@ export function AvailabilityCalendar({
         selection={selection}
         onSelect={onSelect}
         maxDays={maxDays}
+        readOnly={readOnly}
       />
 
       <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-ink-muted text-xs">
         <Legend className="bg-white ring-1 ring-ink/15">Ledig</Legend>
-        <Legend className="bg-brand">Valgt</Legend>
+        {readOnly ? null : <Legend className="bg-brand">Valgt</Legend>}
         <Legend className="bg-ink/10">Opptatt</Legend>
         <Legend className="border border-ink/30 border-dashed">Stengt</Legend>
       </ul>
@@ -125,9 +132,10 @@ function MonthGrid({
   selection,
   onSelect,
   maxDays,
+  readOnly,
 }: Pick<
   CalendarProps,
-  "month" | "availability" | "selection" | "onSelect" | "maxDays"
+  "month" | "availability" | "selection" | "onSelect" | "maxDays" | "readOnly"
 >) {
   const days = useMemo(() => eachDay(month, endOfMonth(month)), [month]);
   const booked = useMemo(
@@ -184,6 +192,7 @@ function MonthGrid({
             )}
             onSelect={onSelect}
             maxDays={maxDays}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -259,11 +268,13 @@ function DayCell({
   state,
   onSelect,
   maxDays,
+  readOnly,
 }: {
   date: IsoDate;
   state: DayState;
   onSelect: (date: IsoDate) => void;
   maxDays: number;
+  readOnly?: boolean;
 }) {
   const disabled = UNAVAILABLE.includes(state);
   const label = formatFullDay(date);
@@ -276,6 +287,24 @@ function DayCell({
     past: "for tidlig å booke",
     tooFar: `utenfor grensen på ${maxDays} dager`,
   };
+
+  // With booking closed the calendar is a notice board, not a control: the
+  // days keep their colours but nothing invites a click.
+  if (readOnly) {
+    return (
+      <span
+        aria-hidden={state === "loading"}
+        aria-label={`${label} – ${hints[state] ?? "ledig"}`}
+        className={`grid aspect-square place-items-center rounded-[4px] text-sm ${
+          state === "available"
+            ? "bg-white text-ink ring-1 ring-ink/10"
+            : CELL_STYLES[state]
+        }`}
+      >
+        {Number(date.slice(8))}
+      </span>
+    );
+  }
 
   return (
     <button

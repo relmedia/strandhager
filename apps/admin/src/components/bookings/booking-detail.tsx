@@ -14,11 +14,13 @@ import {
   Mail,
   PartyPopper,
   Phone,
+  Printer,
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDelete } from "@/components/cms/confirm-delete";
+import { BookingDocument } from "@/components/bookings/booking-document";
 import { ReasonDialog } from "@/components/bookings/reason-dialog";
 import {
   PAYMENT_LABELS,
@@ -32,14 +34,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useBooking } from "@/hooks/use-bookings";
 import { deleteBooking } from "@/lib/booking";
-import { formatFullDate, formatMoney, formatTimestamp } from "@/lib/format";
+import { formatMoney, formatTimestamp } from "@/lib/format";
 import { WEB_URL } from "@/lib/media";
 import type { Booking, BookingStatus, PaymentStatus, BookingUpdate } from "@/types/booking";
 
 const selectClass =
   "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs";
 
-export function BookingDetail({ id }: { id: string }) {
+export function BookingDetail({ id, adminName }: { id: string; adminName: string }) {
   const router = useRouter();
   const { data, loading, error, saving, save } = useBooking(id);
 
@@ -84,7 +86,7 @@ export function BookingDetail({ id }: { id: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
+      <div className="space-y-3 print:hidden">
         <BackLink />
 
         <div className="flex flex-wrap items-center gap-3">
@@ -105,51 +107,20 @@ export function BookingDetail({ id }: { id: string }) {
         </p>
       </div>
 
-      <StatusActions booking={data} saving={saving} onApply={apply} />
+      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
+        <StatusActions booking={data} saving={saving} adminName={adminName} onApply={apply} />
+        <Button variant="outline" onClick={() => window.print()}>
+          <Printer className="size-4" />
+          Skriv ut
+        </Button>
+      </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section className="space-y-4 rounded-lg border p-5 lg:col-span-2">
-          <h2 className="font-medium">Leien</h2>
-
-          <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-            <Row label="Lokale">{data.space.name}</Row>
-            <Row label="Antall gjester">{data.guests}</Row>
-            <Row label="Fra">{formatFullDate(data.startDate)}</Row>
-            <Row label="Til">{formatFullDate(data.endDate)}</Row>
-            <Row label="Antall dager">{data.days}</Row>
-            <Row label="Anledning">{data.purpose ?? "—"}</Row>
-          </dl>
-
-          {data.message ? (
-            <div className="rounded-md bg-muted/50 p-4">
-              <p className="font-medium text-sm">Melding fra gjesten</p>
-              <p className="mt-1.5 whitespace-pre-wrap text-muted-foreground text-sm">
-                {data.message}
-              </p>
-            </div>
-          ) : null}
-
-          {data.signature ? (
-            <div className="rounded-md bg-muted/50 p-4">
-              <p className="font-medium text-sm">Signatur</p>
-              {data.termsAcceptedAt ? (
-                <p className="mt-0.5 text-muted-foreground text-xs">
-                  Leievilkårene ble godtatt og signert{" "}
-                  {formatTimestamp(data.termsAcceptedAt)}
-                </p>
-              ) : null}
-              {/* A data URL drawn by the guest; next/image has nothing to optimize here. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={data.signature}
-                alt={`Signaturen til ${data.guest.firstName} ${data.guest.lastName}`}
-                className="mt-2 h-24 w-auto max-w-full rounded-md bg-white ring-1 ring-border"
-              />
-            </div>
-          ) : null}
+      <div className="grid gap-4 lg:grid-cols-3 print:block">
+        <div className="space-y-4 lg:col-span-2">
+          <BookingDocument booking={data} />
 
           {data.cancelledAt ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4">
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 print:hidden">
               <p className="font-medium text-destructive text-sm">
                 {STATUS_LABELS[data.status]}{" "}
                 {data.cancelledBy === "GUEST" ? "av gjesten" : "av dere"} den{" "}
@@ -161,10 +132,12 @@ export function BookingDetail({ id }: { id: string }) {
             </div>
           ) : null}
 
-          <Notes booking={data} saving={saving} onApply={apply} />
-        </section>
+          <section className="rounded-lg border p-5 print:hidden">
+            <Notes booking={data} saving={saving} onApply={apply} />
+          </section>
+        </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 print:hidden">
           <section className="space-y-3 rounded-lg border p-5">
             <h2 className="font-medium">Kontakt</h2>
 
@@ -255,14 +228,24 @@ type ApplyFn = (patch: BookingUpdate, success: string) => void | Promise<void>;
 function StatusActions({
   booking,
   saving,
+  adminName,
   onApply,
 }: {
   booking: Booking;
   saving: boolean;
+  adminName: string;
   onApply: ApplyFn;
 }) {
   const set = (status: BookingStatus, success: string, cancelReason?: string) =>
-    onApply({ status, cancelReason }, success);
+    onApply(
+      {
+        status,
+        cancelReason,
+        // Confirming signs the agreement electronically on the utleier's behalf.
+        ...(status === "CONFIRMED" && adminName ? { confirmedByName: adminName } : {}),
+      },
+      success,
+    );
 
   const actions: Record<BookingStatus, React.ReactNode> = {
     PENDING: (
@@ -424,15 +407,6 @@ function GuestLink({ booking }: { booking: Booking }) {
           {copied ? "Kopiert" : "Kopier"}
         </Button>
       </div>
-    </div>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="mt-0.5">{children}</dd>
     </div>
   );
 }

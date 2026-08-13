@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   CalendarDays,
+  CalendarOff,
   LoaderCircle,
   PenLine,
   TriangleAlert,
@@ -67,7 +68,16 @@ const EMPTY: Details = {
   message: "",
 };
 
-export function BookingPanel({ space }: { space: Space }) {
+/** Who to reach when bookings are handled manually. */
+export type BookingContactInfo = { name: string; email: string; phone: string };
+
+export function BookingPanel({
+  space,
+  contact,
+}: {
+  space: Space;
+  contact: BookingContactInfo;
+}) {
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [month, setMonth] = useState(() => startOfMonth(todayIso()));
@@ -166,7 +176,12 @@ export function BookingPanel({ space }: { space: Space }) {
     };
   }, [selection, space.slug]);
 
+  // Online booking can be shut off in the dashboard; the calendar then only
+  // shows which days are free while the board enters bookings by hand.
+  const bookingOpen = space.active;
+
   function handleSelect(date: string) {
+    if (!bookingOpen) return;
     setError(null);
     setSelection((current) =>
       nextSelection(current, date, unavailableDates, space.maxBookingDays),
@@ -240,14 +255,23 @@ export function BookingPanel({ space }: { space: Space }) {
           <div className="flex items-center gap-4">
             <span className="h-px w-10 bg-brand/60" />
             <p className="font-medium text-brand-deep text-xs tracking-[0.26em] uppercase">
-              Velg dager
+              {bookingOpen ? "Velg dager" : "Ledige dager"}
             </p>
           </div>
 
           <p className="mt-5 text-ink-muted text-sm leading-relaxed">
-            Trykk på en dag for å velge den. Trykk på en dag til for å leie flere dager på
-            rad – inntil {space.maxBookingDays}{" "}
-            {space.maxBookingDays === 1 ? "dag" : "dager"} om gangen.
+            {bookingOpen ? (
+              <>
+                Trykk på en dag for å velge den. Trykk på en dag til for å leie flere
+                dager på rad – inntil {space.maxBookingDays}{" "}
+                {space.maxBookingDays === 1 ? "dag" : "dager"} om gangen.
+              </>
+            ) : (
+              <>
+                Kalenderen viser hvilke dager som er ledige og hvilke som er opptatt i{" "}
+                {space.name}.
+              </>
+            )}
           </p>
 
           <div className="mt-8">
@@ -265,6 +289,7 @@ export function BookingPanel({ space }: { space: Space }) {
                 onSelect={handleSelect}
                 monthsAhead={MONTHS_AHEAD}
                 maxDays={space.maxBookingDays}
+                readOnly={!bookingOpen}
               />
             )}
           </div>
@@ -274,7 +299,9 @@ export function BookingPanel({ space }: { space: Space }) {
           ref={receiptPanel}
           className="bg-sand/50 p-7 md:col-span-5 md:p-10"
         >
-          {result ? (
+          {!bookingOpen ? (
+            <BookingClosed spaceName={space.name} contact={contact} />
+          ) : result ? (
             <BookingReceipt
               booking={result.booking}
               cancelToken={result.cancelToken}
@@ -403,34 +430,28 @@ export function BookingPanel({ space }: { space: Space }) {
                   </label>
                 </div>
 
-                <div className="pt-1">
-                  <p className="mb-2 text-ink-muted text-sm">Signatur</p>
-                  {signature ? (
-                    <div className="flex items-center gap-4">
-                      <img
-                        src={signature}
-                        alt="Signaturen din"
-                        className="h-14 max-w-40 rounded-sm bg-white object-contain ring-1 ring-ink/10"
-                      />
+                {/* Signing happens inside the terms dialog; nudge those who
+                    ticked the box without having opened it. */}
+                {acceptedTerms && !signature ? (
+                  <p className="flex items-start gap-2.5 text-ink-muted text-sm leading-relaxed">
+                    <PenLine
+                      className="mt-0.5 size-4 shrink-0"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                    <span>
+                      Husk å{" "}
                       <button
                         type="button"
                         onClick={() => setTermsOpen(true)}
-                        className="text-ink-muted text-sm underline underline-offset-2 transition-colors hover:text-ink"
+                        className="font-medium text-brand-deep underline underline-offset-2 transition-colors hover:text-brand"
                       >
-                        Endre signatur
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setTermsOpen(true)}
-                      className="flex w-full items-center justify-center gap-2 rounded-sm border border-ink/20 border-dashed bg-white px-4 py-4 text-ink-muted text-sm transition-colors hover:border-brand hover:text-ink"
-                    >
-                      <PenLine className="size-4" strokeWidth={1.75} aria-hidden />
-                      Åpne leievilkårene og signer
-                    </button>
-                  )}
-                </div>
+                        signere i leievilkårene
+                      </button>{" "}
+                      før du sender forespørselen.
+                    </span>
+                  </p>
+                ) : null}
               </fieldset>
 
               {error ? (
@@ -479,6 +500,55 @@ export function BookingPanel({ space }: { space: Space }) {
         signature={signature}
         onSignature={setSignature}
       />
+    </div>
+  );
+}
+
+/** Shown in place of the form while online booking is switched off. */
+function BookingClosed({
+  spaceName,
+  contact,
+}: {
+  spaceName: string;
+  contact: BookingContactInfo;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-4">
+        <span className="h-px w-10 bg-brand/60" />
+        <p className="font-medium text-brand-deep text-xs tracking-[0.26em] uppercase">
+          Booking
+        </p>
+      </div>
+
+      <div className="mt-8 flex size-11 items-center justify-center rounded-full bg-white ring-1 ring-ink/10">
+        <CalendarOff className="size-5 text-brand-deep" strokeWidth={1.75} aria-hidden />
+      </div>
+
+      <p className="mt-5 font-display text-ink text-xl leading-snug">
+        Nettbooking er stengt for øyeblikket
+      </p>
+
+      <p className="mt-4 text-ink-muted text-sm leading-relaxed">
+        Bruk kalenderen til å se hvilke dager som er ledige. Vil du leie {spaceName}? Ta
+        kontakt om dagene du ønsker, så legger vi inn bookingen for deg.
+      </p>
+
+      <div className="mt-6 border-ink/10 border-t pt-6 text-sm">
+        <p className="text-ink">{contact.name}</p>
+        <a
+          href={`mailto:${contact.email}`}
+          className="mt-1 block text-ink-muted underline-offset-4 transition-colors hover:text-brand-deep hover:underline"
+        >
+          {contact.email}
+        </a>
+        <a
+          href={`tel:${contact.phone.replace(/\s/g, "")}`}
+          className="mt-1 block text-ink-muted underline-offset-4 transition-colors hover:text-brand-deep hover:underline"
+        >
+          {contact.phone}
+        </a>
+      </div>
     </div>
   );
 }

@@ -31,6 +31,10 @@ export type Booking = {
   termsAcceptedAt: string | null;
   /** The guest's hand-drawn signature as a PNG data URL. */
   signature: string | null;
+  /** When the dashboard confirmed the booking — the utleier's electronic signature. */
+  confirmedAt: string | null;
+  /** Which administrator clicked confirm. */
+  confirmedByName: string | null;
   createdAt: string;
   updatedAt: string;
   /** Secret in the guest's own booking link, so it can be resent. */
@@ -106,4 +110,6 @@ export type BookingUpdate = {
   purpose?: string;
   notes?: string;
   cancelReason?: string;
+  /** Sent along when confirming, recorded as the utleier's electronic signature. */
+  confirmedByName?: string;
 };

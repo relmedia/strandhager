@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { BookingStatus, CancelledBy, type Prisma } from '@cabin/database';
@@ -21,7 +22,10 @@ import { findOverlappingBlackouts } from '../blackouts/overlap';
 import {
   NotificationsService,
   type BookingMail,
+  type MailAttachment,
 } from '../notifications/notifications.service';
+import { renderAgreementPdf } from '../notifications/agreement-pdf';
+import { PaymentsService } from '../payments/payments.service';
 import { BLOCKING_STATUSES, findOverlapping } from './overlap';
 import { generateCancelToken, generateReference } from './reference';
 import { toAdminView, toGuestView, type BookingRecord } from './bookings.serializer';
@@ -51,10 +55,13 @@ const CLOSED_STATUSES: BookingStatus[] = [
 
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly spaces: SpacesService,
     private readonly notifications: NotificationsService,
+    private readonly payments: PaymentsService,
   ) {}
 
   // --- Public -------------------------------------------------------------
@@ -72,7 +79,9 @@ export class BookingsService {
     );
 
     if (!space.active) {
-      throw new BadRequestException(`${space.name} kan ikke bookes for øyeblikket`);
+      throw new BadRequestException(
+        `Nettbooking av ${space.name} er stengt for øyeblikket. Ta kontakt med oss for å leie.`,
+      );
     }
 
     const earliest = addDays(todayIso(), space.noticeDays);
@@ -293,6 +302,12 @@ export class BookingsService {
 
     if (dto.status !== undefined && dto.status !== existing.status) {
       applyStatusChange(data, dto.status, dto.cancelReason);
+
+      // Confirming is the utleier's electronic signature on the agreement.
+      if (dto.status === BookingStatus.CONFIRMED) {
+        data.confirmedAt = new Date();
+        data.confirmedByName = dto.confirmedByName ?? null;
+      }
     } else if (dto.cancelReason !== undefined) {
       data.cancelReason = dto.cancelReason;
     }
@@ -325,7 +340,21 @@ export class BookingsService {
 
     // The guest hears about it when the dashboard settles their booking.
     if (dto.status !== undefined && dto.status !== existing.status && isDecision(dto.status)) {
-      await this.notifications.notifyBookingDecision(toMail(updated), dto.status);
+      const confirmed = dto.status === BookingStatus.CONFIRMED;
+
+      // The confirmation carries the signed agreement and a Vipps payment
+      // link; both are best-effort and never block the e-mail itself.
+      const [attachments, payment] = confirmed
+        ? await Promise.all([
+            this.agreementAttachment(updated, existing.space.maxGuests),
+            this.payments.paymentForBooking(updated),
+          ])
+        : [undefined, undefined];
+
+      await this.notifications.notifyBookingDecision(toMail(updated), dto.status, {
+        attachments,
+        payment,
+      });
     }
 
     return toAdminView(updated);
@@ -338,6 +367,51 @@ export class BookingsService {
   }
 
   // --- Internals ----------------------------------------------------------
+
+  /**
+   * The rental agreement as a PDF, ready to attach to the confirmation
+   * e-mail. Never throws: the confirmation must go through even when the
+   * PDF cannot be built.
+   */
+  private async agreementAttachment(
+    booking: BookingRecord,
+    maxGuests: number,
+  ): Promise<MailAttachment[] | undefined> {
+    try {
+      const startDate = toIsoDate(booking.startDate);
+      const endDate = toIsoDate(booking.endDate);
+
+      const pdf = await renderAgreementPdf({
+        reference: booking.reference,
+        spaceName: booking.space.name,
+        maxGuests,
+        guestName: `${booking.guest.firstName} ${booking.guest.lastName}`,
+        guestEmail: booking.guest.email,
+        guestPhone: booking.guest.phone,
+        guestCompany: booking.guest.company,
+        startDate,
+        endDate,
+        days: daysBetween(startDate, endDate) + 1,
+        guests: booking.guests,
+        purpose: booking.purpose,
+        dayTotal: booking.dayTotal,
+        cleaningFee: booking.cleaningFee,
+        total: booking.total,
+        signature: booking.signature,
+        termsAcceptedAt: booking.termsAcceptedAt,
+        confirmedAt: booking.confirmedAt ?? new Date(),
+        confirmedByName: booking.confirmedByName,
+      });
+
+      return [{ filename: `leieavtale-${booking.reference}.pdf`, content: pdf }];
+    } catch (cause) {
+      this.logger.error(
+        `Kunne ikke lage leieavtale-PDF for booking ${booking.reference}`,
+        cause,
+      );
+      return undefined;
+    }
+  }
 
   private async loadForGuest(reference: string, token: string) {
     const booking = await this.prisma.booking.findUnique({

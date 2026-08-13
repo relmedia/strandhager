@@ -4,6 +4,7 @@ import {
   ArrayNotEmpty,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -68,6 +69,14 @@ export class UpdateSpaceDto {
   @Min(1)
   @Max(365)
   maxBookingDays?: number;
+
+  /**
+   * When false, guests can still see the availability calendar but cannot
+   * book online — the board enters bookings manually instead.
+   */
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 
   /** When present, replaces the whole price list. */
   @IsOptional()

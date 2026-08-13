@@ -31,6 +31,8 @@ export function toAdminView(booking: BookingRecord) {
     cancelReason: booking.cancelReason,
     termsAcceptedAt: booking.termsAcceptedAt?.toISOString() ?? null,
     signature: booking.signature,
+    confirmedAt: booking.confirmedAt?.toISOString() ?? null,
+    confirmedByName: booking.confirmedByName,
     createdAt: booking.createdAt.toISOString(),
     updatedAt: booking.updatedAt.toISOString(),
     space: { slug: booking.space.slug, name: booking.space.name },

@@ -34,6 +34,11 @@ export type EmailContent = {
   codeLabel?: string;
   /** A button under the text, e.g. the guest's cancellation link. */
   action?: { label: string; url: string };
+  /**
+   * A Vipps payment: an orange pay button plus, when qrCid is set, the QR
+   * code attached to the mail with that content id, shown inline.
+   */
+  payment?: { url: string; qrCid?: string };
 };
 
 export function renderEmail({
@@ -43,6 +48,7 @@ export function renderEmail({
   code,
   codeLabel,
   action,
+  payment,
 }: EmailContent): string {
   const paragraphs = lines
     .map(
@@ -70,6 +76,26 @@ export function renderEmail({
           <td align="center" style="padding:22px 16px;background:${SAND};border:1px solid #d5ddd0;border-radius:10px;">
             <p style="margin:0 0 8px;color:${MUTED};font-size:16px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;">${escapeHtml(codeLabel ?? 'Kode')}</p>
             <p style="margin:0;color:${INK};font-size:${code.length <= 8 ? '36px' : '24px'};line-height:1.2;font-weight:700;letter-spacing:${code.length <= 8 ? '0.28em' : '0.06em'};font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;">${escapeHtml(code)}</p>
+          </td>
+        </tr>
+      </table>`
+    : '';
+
+  const paymentBox = payment
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 8px;width:100%;">
+        <tr>
+          <td align="center" style="padding:24px 16px;background:${SAND};border:1px solid #d5ddd0;border-radius:10px;">
+            <p style="margin:0 0 14px;color:${MUTED};font-size:14px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;">Betaling</p>
+            <a href="${escapeAttribute(payment.url)}"
+               style="display:inline-block;background:#ff5b24;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:13px 26px;border-radius:8px;">
+              Betal med Vipps
+            </a>
+            ${
+              payment.qrCid
+                ? `<p style="margin:18px 0 10px;color:${MUTED};font-size:13px;line-height:1.5;">… eller skann QR-koden med mobilkameraet eller Vipps-appen:</p>
+                   <img src="cid:${escapeAttribute(payment.qrCid)}" alt="QR-kode for betaling med Vipps" width="180" height="180" style="display:block;margin:0 auto;border:0;outline:none;" />`
+                : ''
+            }
           </td>
         </tr>
       </table>`
@@ -122,6 +148,7 @@ export function renderEmail({
                 ${paragraphs}
                 ${codeBox}
                 ${table}
+                ${paymentBox}
                 ${button}
               </td>
             </tr>
@@ -177,6 +204,7 @@ export function renderText({
   code,
   codeLabel,
   action,
+  payment,
 }: EmailContent): string {
   const parts = [heading, '', ...lines];
   if (code) {
@@ -184,6 +212,9 @@ export function renderText({
   }
   if (facts?.length) {
     parts.push('', ...facts.map(([label, value]) => `${label}: ${value}`));
+  }
+  if (payment) {
+    parts.push('', `Betal med Vipps: ${payment.url}`);
   }
   if (action) {
     parts.push('', `${action.label}: ${action.url}`);

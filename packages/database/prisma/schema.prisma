@@ -162,6 +162,15 @@ model Booking {
   /// The guest's hand-drawn signature as a PNG data URL.
   signature       String?
 
+  /// When the dashboard confirmed the booking — the utleier's electronic signature.
+  confirmedAt     DateTime?
+  /// Which administrator clicked confirm.
+  confirmedByName String?
+
+  /// The reference of the Vipps payment created at confirmation, so
+  /// webhook events can be traced back to the booking.
+  paymentReference String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

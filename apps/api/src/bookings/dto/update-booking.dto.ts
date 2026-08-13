@@ -51,4 +51,10 @@ export class UpdateBookingDto {
   @IsString()
   @MaxLength(500)
   cancelReason?: string;
+
+  /** The administrator confirming the booking; recorded as the utleier's electronic signature. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  confirmedByName?: string;
 }

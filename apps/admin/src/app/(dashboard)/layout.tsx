@@ -68,6 +68,8 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
           "[html[data-content-layout=centered]_&>*]:max-w-screen-2xl",
           "peer-data-[variant=inset]:border",
           "[--dashboard-header-height:--spacing(12)]",
+          // On paper only the page content should remain, without the app frame.
+          "print:m-0! print:rounded-none! print:border-none! print:shadow-none!",
         )}
       >
         <Header
@@ -89,7 +91,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
             </>
           }
         />
-        <div className="h-full p-4 has-data-[content-padding=false]:p-0 md:p-6 md:has-data-[content-padding=false]:p-0">
+        <div className="h-full p-4 has-data-[content-padding=false]:p-0 md:p-6 md:has-data-[content-padding=false]:p-0 print:p-0!">
           {children}
         </div>
       </SidebarInset>
