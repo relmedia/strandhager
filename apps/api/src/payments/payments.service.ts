@@ -1,9 +1,27 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PaymentStatus } from '@cabin/database';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { PaymentStatus, type Prisma } from '@cabin/database';
 import * as QRCode from 'qrcode';
 
+import { toAdminView } from '../bookings/bookings.serializer';
+import { toIsoDate } from '../common/dates';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { VippsService } from './vipps.service';
+
+/** Same slice of related records as the bookings module loads. */
+const INCLUDE = {
+  space: { select: { slug: true, name: true } },
+  guest: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      company: true,
+    },
+  },
+} satisfies Prisma.BookingInclude;
 
 const WEB_URL = (process.env.WEB_URL ?? process.env.WEB_ORIGIN ?? 'http://localhost:3000').replace(
   /\/+$/,
@@ -42,6 +60,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly vipps: VippsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -91,6 +110,70 @@ export class PaymentsService {
   }
 
   /**
+   * The dashboard's refund button: sends the full amount back through Vipps
+   * and marks the booking as refunded. Unlike the flows above this one
+   * throws, so the administrator can read exactly what went wrong.
+   */
+  async refundBooking(bookingId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: INCLUDE,
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Fant ingen booking med denne id-en');
+    }
+
+    if (!booking.paymentReference) {
+      throw new BadRequestException(
+        'Bookingen har ingen Vipps-betaling å refundere. Er den betalt på annen måte, sett betalingsstatusen manuelt.',
+      );
+    }
+
+    if (booking.paymentStatus === PaymentStatus.REFUNDED) {
+      throw new BadRequestException('Betalingen er allerede refundert.');
+    }
+
+    if (booking.paymentStatus !== PaymentStatus.PAID) {
+      throw new BadRequestException('Bookingen er ikke registrert som betalt via Vipps.');
+    }
+
+    if (!this.vipps.configured) {
+      throw new BadRequestException('Vipps er ikke konfigurert på serveren.');
+    }
+
+    try {
+      await this.vipps.refundPayment(booking.paymentReference, booking.total);
+    } catch (cause) {
+      this.logger.error(`Refusjon feilet for booking ${booking.reference}`, cause);
+      throw new BadRequestException(
+        'Vipps godtok ikke refusjonen. Prøv igjen, eller refunder fra Vipps-portalen.',
+      );
+    }
+
+    const updated = await this.prisma.booking.update({
+      where: { id: booking.id },
+      data: { paymentStatus: PaymentStatus.REFUNDED },
+      include: INCLUDE,
+    });
+
+    this.logger.log(`Refunderte ${booking.total} kr for booking ${booking.reference}`);
+
+    await this.notifications.notifyPaymentRefunded({
+      reference: updated.reference,
+      guestName: `${updated.guest.firstName} ${updated.guest.lastName}`,
+      guestEmail: updated.guest.email,
+      spaceName: updated.space.name,
+      startDate: toIsoDate(updated.startDate),
+      endDate: toIsoDate(updated.endDate),
+      guests: updated.guests,
+      total: updated.total,
+    });
+
+    return toAdminView(updated);
+  }
+
+  /**
    * A payment changed state at Vipps. Capture the money when the customer has
    * approved it, and mark the booking as paid.
    */
@@ -111,6 +194,12 @@ export class PaymentsService {
     const name = String(event.name ?? '').toUpperCase();
     this.logger.log(`Vipps-webhook ${name} for booking ${booking.reference}`);
 
+    // A refund done straight in the Vipps portal should show up here too.
+    if (name === 'REFUNDED') {
+      await this.setPaymentStatus(booking.id, PaymentStatus.REFUNDED);
+      return;
+    }
+
     if (booking.paymentStatus === PaymentStatus.PAID) return;
 
     if (name === 'AUTHORIZED' && event.success !== false) {
@@ -122,20 +211,17 @@ export class PaymentsService {
         this.logger.error(`Kunne ikke kreve inn Vipps-betaling ${reference}`, cause);
         return;
       }
-      await this.markPaid(booking.id);
+      await this.setPaymentStatus(booking.id, PaymentStatus.PAID);
       return;
     }
 
     if (name === 'CAPTURED') {
-      await this.markPaid(booking.id);
+      await this.setPaymentStatus(booking.id, PaymentStatus.PAID);
     }
   }
 
-  private async markPaid(id: string): Promise<void> {
-    await this.prisma.booking.update({
-      where: { id },
-      data: { paymentStatus: PaymentStatus.PAID },
-    });
+  private async setPaymentStatus(id: string, paymentStatus: PaymentStatus): Promise<void> {
+    await this.prisma.booking.update({ where: { id }, data: { paymentStatus } });
   }
 }
 

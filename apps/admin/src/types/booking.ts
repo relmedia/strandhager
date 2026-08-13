@@ -14,6 +14,8 @@ export type Booking = {
   reference: string;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
+  /** Set when a Vipps payment exists, meaning a refund can go through Vipps. */
+  paymentReference: string | null;
   startDate: string;
   endDate: string;
   days: number;
@@ -41,6 +43,7 @@ export type Booking = {
   cancelToken: string;
   space: { slug: string; name: string };
   guest: {
+    id: string;
     firstName: string;
     lastName: string;
     email: string;
@@ -49,7 +52,8 @@ export type Booking = {
   };
 };
 
-export type BookingCounts = Record<BookingStatus, number>;
+/** Counts per booking status, plus refunded payments as its own figure. */
+export type BookingCounts = Record<BookingStatus, number> & { REFUNDED: number };
 
 export type Rate = {
   id: string;
@@ -94,6 +98,7 @@ export type NewBlackout = {
 
 export type BookingFilters = {
   status?: BookingStatus;
+  paymentStatus?: PaymentStatus;
   from?: string;
   to?: string;
   q?: string;

@@ -32,6 +32,11 @@ export function deleteBooking(id: string) {
   return apiFetch<{ id: string }>(`/bookings/${id}`, { method: "DELETE" });
 }
 
+/** Sends the full amount back to the guest through Vipps. */
+export function refundBooking(id: string) {
+  return apiFetch<Booking>(`/payments/bookings/${id}/refund`, { method: "POST" });
+}
+
 export function listBlackouts(space: string, from?: string) {
   return apiFetch<Blackout[]>("/blackouts", { searchParams: { space, from } });
 }

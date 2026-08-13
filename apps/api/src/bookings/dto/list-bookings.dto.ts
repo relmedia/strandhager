@@ -1,4 +1,4 @@
-import { BookingStatus } from '@cabin/database';
+import { BookingStatus, PaymentStatus } from '@cabin/database';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 
@@ -13,6 +13,10 @@ export class ListBookingsDto {
   @IsOptional()
   @IsEnum(BookingStatus, { message: 'Ukjent status' })
   status?: BookingStatus;
+
+  @IsOptional()
+  @IsEnum(PaymentStatus, { message: 'Ukjent betalingsstatus' })
+  paymentStatus?: PaymentStatus;
 
   /** Only bookings touching this range, used by the calendar. */
   @IsOptional()

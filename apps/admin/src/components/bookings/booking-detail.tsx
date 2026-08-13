@@ -13,37 +13,59 @@ import {
   Copy,
   Mail,
   PartyPopper,
+  Pencil,
   Phone,
   Printer,
   RotateCcw,
+  Undo2,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 import { ConfirmDelete } from "@/components/cms/confirm-delete";
 import { BookingDocument } from "@/components/bookings/booking-document";
 import { ReasonDialog } from "@/components/bookings/reason-dialog";
 import {
-  PAYMENT_LABELS,
   PaymentBadge,
   STATUS_LABELS,
   StatusBadge,
 } from "@/components/bookings/status-badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useBooking } from "@/hooks/use-bookings";
-import { deleteBooking } from "@/lib/booking";
+import { deleteBooking, refundBooking } from "@/lib/booking";
+import { updateGuest } from "@/lib/guest";
 import { formatMoney, formatTimestamp } from "@/lib/format";
 import { WEB_URL } from "@/lib/media";
-import type { Booking, BookingStatus, PaymentStatus, BookingUpdate } from "@/types/booking";
-
-const selectClass =
-  "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs";
+import type { Booking, BookingStatus, BookingUpdate } from "@/types/booking";
 
 export function BookingDetail({ id, adminName }: { id: string; adminName: string }) {
   const router = useRouter();
-  const { data, loading, error, saving, save } = useBooking(id);
+  const { data, loading, error, saving, save, reload } = useBooking(id);
 
   async function apply(patch: BookingUpdate, success: string) {
     const failure = await save(patch);
@@ -139,7 +161,15 @@ export function BookingDetail({ id, adminName }: { id: string; adminName: string
 
         <div className="space-y-4 print:hidden">
           <section className="space-y-3 rounded-lg border p-5">
-            <h2 className="font-medium">Kontakt</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-medium">Kontakt</h2>
+              <EditContact booking={data} onSaved={() => void reload()} />
+            </div>
+
+            <p className="flex items-center gap-2 text-sm">
+              <User className="size-4 text-muted-foreground" />
+              {data.guest.firstName} {data.guest.lastName}
+            </p>
 
             <ContactLink
               href={`mailto:${data.guest.email}`}
@@ -181,27 +211,18 @@ export function BookingDetail({ id, adminName }: { id: string; adminName: string
               </div>
             </dl>
 
-            <div className="space-y-1.5 pt-1">
-              <Label htmlFor="payment">Betaling</Label>
-              <select
-                id="payment"
-                className={selectClass}
-                value={data.paymentStatus}
-                disabled={saving}
-                onChange={(event) =>
-                  void apply(
-                    { paymentStatus: event.target.value as PaymentStatus },
-                    "Betalingsstatus oppdatert",
-                  )
-                }
-              >
-                {Object.entries(PAYMENT_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-center justify-between border-t pt-3">
+              <span className="text-muted-foreground text-sm">Betaling</span>
+              <PaymentBadge status={data.paymentStatus} />
             </div>
+
+            {data.paymentStatus === "PAID" && data.paymentReference ? (
+              <RefundVipps booking={data} onDone={() => void reload()} />
+            ) : null}
+
+            {!data.paymentReference ? (
+              <ManualPayment booking={data} saving={saving} onApply={apply} />
+            ) : null}
           </section>
 
           <section className="space-y-3 rounded-lg border border-destructive/30 p-5">
@@ -305,6 +326,207 @@ function StatusActions({
   };
 
   return <div className="flex flex-wrap gap-2">{actions[booking.status]}</div>;
+}
+
+/**
+ * The pen next to «Kontakt»: corrects the guest's contact details. The
+ * changes are saved on the guest record, so they apply to all their bookings
+ * and to the guest register.
+ */
+function EditContact({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => initialForm(booking));
+
+  function initialForm(source: Booking) {
+    return {
+      firstName: source.guest.firstName,
+      lastName: source.guest.lastName,
+      email: source.guest.email,
+      phone: source.guest.phone ?? "",
+      company: source.guest.company ?? "",
+    };
+  }
+
+  function openChange(next: boolean) {
+    // Start fresh from the booking every time, discarding stale edits.
+    if (next) setForm(initialForm(booking));
+    setOpen(next);
+  }
+
+  const set = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((current) => ({ ...current, [field]: event.target.value }));
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await updateGuest(booking.guest.id, form);
+      toast.success("Kontaktinformasjonen er oppdatert");
+      setOpen(false);
+      onSaved();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Klarte ikke å lagre endringene");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={openChange}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Endre kontaktinformasjon">
+          <Pencil className="size-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Endre kontaktinformasjon</DialogTitle>
+          <DialogDescription>
+            Endringene lagres på gjesten og gjelder alle bookingene deres.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-first">Fornavn</Label>
+              <Input
+                id="contact-first"
+                value={form.firstName}
+                onChange={set("firstName")}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-last">Etternavn</Label>
+              <Input
+                id="contact-last"
+                value={form.lastName}
+                onChange={set("lastName")}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="contact-email">E-post</Label>
+            <Input
+              id="contact-email"
+              type="email"
+              value={form.email}
+              onChange={set("email")}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="contact-phone">Telefon</Label>
+            <Input id="contact-phone" value={form.phone} onChange={set("phone")} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="contact-company">Firma</Label>
+            <Input id="contact-company" value={form.company} onChange={set("company")} />
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Lagrer …" : "Lagre"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Fallback for bookings paid outside Vipps (bank transfer, cash): the badge
+ * follows what the administrator marks here. Vipps-paid bookings never show
+ * this — their status is driven by Vipps' own payment events.
+ */
+function ManualPayment({
+  booking,
+  saving,
+  onApply,
+}: {
+  booking: Booking;
+  saving: boolean;
+  onApply: ApplyFn;
+}) {
+  const paid = booking.paymentStatus === "PAID";
+
+  return (
+    <Button
+      size="sm"
+      className="w-full"
+      disabled={saving}
+      onClick={() =>
+        void onApply(
+          { paymentStatus: paid ? "UNPAID" : "PAID" },
+          paid ? "Markert som ikke betalt" : "Markert som betalt",
+        )
+      }
+    >
+      {paid ? "Marker som ikke betalt" : "Marker som betalt"}
+    </Button>
+  );
+}
+
+/**
+ * Sends the money back through Vipps. Only shown when the booking was paid
+ * with Vipps, so the button always means "one click and the guest has their
+ * money on the way".
+ */
+function RefundVipps({ booking, onDone }: { booking: Booking; onDone: () => void }) {
+  const [working, setWorking] = useState(false);
+
+  async function refund() {
+    setWorking(true);
+    try {
+      await refundBooking(booking.id);
+      toast.success("Beløpet er refundert via Vipps");
+      onDone();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Klarte ikke å refundere");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <p className="text-muted-foreground text-xs">
+        Betalt via Vipps. Refusjonen går tilbake til kontoen gjesten betalte fra.
+      </p>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            className="w-full bg-[#ff5b24] text-white hover:bg-[#ff5b24]/85"
+            disabled={working}
+          >
+            <Undo2 className="size-4" />
+            {working ? "Refunderer …" : "Refunder via Vipps"}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Refundere betalingen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {formatMoney(booking.total)} sendes tilbake til {booking.guest.firstName}{" "}
+              {booking.guest.lastName} gjennom Vipps, og gjesten får en e-post om
+              refusjonen. Dette kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void refund()}>Refunder</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 }
 
 function Restore({

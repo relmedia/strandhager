@@ -12,14 +12,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useBookings } from "@/hooks/use-bookings";
 import type { BookingStatus } from "@/types/booking";
 
-/** Tabs across the top. `null` is the catch-all "everything" tab. */
-const TABS: { value: BookingStatus | null; label: string }[] = [
+/**
+ * Tabs across the top. `null` is the catch-all "everything" tab, and
+ * "REFUNDED" filters on payment status instead of booking status.
+ */
+type TabValue = BookingStatus | "REFUNDED" | null;
+
+const TABS: { value: TabValue; label: string }[] = [
   { value: null, label: "Alle" },
   { value: "PENDING", label: STATUS_LABELS.PENDING },
   { value: "CONFIRMED", label: STATUS_LABELS.CONFIRMED },
   { value: "CANCELLED", label: STATUS_LABELS.CANCELLED },
   { value: "DECLINED", label: STATUS_LABELS.DECLINED },
   { value: "COMPLETED", label: STATUS_LABELS.COMPLETED },
+  { value: "REFUNDED", label: "Refundert" },
 ];
 
 export function BookingsList({
@@ -27,17 +33,25 @@ export function BookingsList({
 }: {
   initialStatus?: BookingStatus | null;
 }) {
-  const [status, setStatus] = useState<BookingStatus | null>(initialStatus);
+  const [status, setStatus] = useState<TabValue>(initialStatus);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
 
   const filters = useMemo(
-    () => ({ status: status ?? undefined, q: search || undefined }),
+    () =>
+      status === "REFUNDED"
+        ? { paymentStatus: "REFUNDED" as const, q: search || undefined }
+        : { status: status ?? undefined, q: search || undefined },
     [status, search],
   );
 
   const { data, counts, loading, error, reload } = useBookings(filters);
-  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+
+  // Refunded bookings also carry a status, so they must not be counted twice.
+  const total = (Object.keys(STATUS_LABELS) as BookingStatus[]).reduce(
+    (sum, key) => sum + counts[key],
+    0,
+  );
 
   return (
     <div className="space-y-4">
@@ -136,16 +150,18 @@ export function BookingsList({
   );
 }
 
-function Empty({ search, status }: { search: string; status: BookingStatus | null }) {
+function Empty({ search, status }: { search: string; status: TabValue }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-12 text-center">
       <CalendarX2 className="size-8 text-muted-foreground" strokeWidth={1.5} />
       <p className="font-medium">
         {search
           ? `Ingen treff på «${search}»`
-          : status
-            ? `Ingen bookinger med status ${STATUS_LABELS[status].toLowerCase()}`
-            : "Ingen bookinger ennå"}
+          : status === "REFUNDED"
+            ? "Ingen bookinger med refundert betaling"
+            : status
+              ? `Ingen bookinger med status ${STATUS_LABELS[status].toLowerCase()}`
+              : "Ingen bookinger ennå"}
       </p>
       <p className="max-w-sm text-muted-foreground text-sm">
         {search || status

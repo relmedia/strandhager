@@ -4,6 +4,7 @@ import {
   Controller,
   HttpCode,
   Logger,
+  Param,
   Post,
   Req,
   UnauthorizedException,
@@ -18,6 +19,12 @@ export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name);
 
   constructor(private readonly payments: PaymentsService) {}
+
+  /** Dashboard: sends the full amount back to the guest through Vipps. */
+  @Post('bookings/:id/refund')
+  refund(@Param('id') id: string) {
+    return this.payments.refundBooking(id);
+  }
 
   /**
    * Vipps calls this when a payment changes state. Register the URL with the

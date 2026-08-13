@@ -21,6 +21,7 @@ const EMPTY_COUNTS: BookingCounts = {
   DECLINED: 0,
   CANCELLED: 0,
   COMPLETED: 0,
+  REFUNDED: 0,
 };
 
 function message(error: unknown, fallback: string) {
@@ -34,13 +35,13 @@ export function useBookings(filters: BookingFilters = {}) {
   const [error, setError] = useState<string | null>(null);
 
   // Filters are recreated on every render, so depend on their contents.
-  const { status, from, to, q } = filters;
+  const { status, paymentStatus, from, to, q } = filters;
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const [bookings, summary] = await Promise.all([
-        listBookings({ status, from, to, q: q || undefined }),
+        listBookings({ status, paymentStatus, from, to, q: q || undefined }),
         getBookingCounts(),
       ]);
       setData(bookings);
@@ -50,7 +51,7 @@ export function useBookings(filters: BookingFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [status, from, to, q]);
+  }, [status, paymentStatus, from, to, q]);
 
   useEffect(() => {
     void load();

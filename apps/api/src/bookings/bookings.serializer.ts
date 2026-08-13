@@ -3,7 +3,7 @@ import { daysBetween, toIsoDate } from '../common/dates';
 
 export type BookingRecord = Booking & {
   space: Pick<Space, 'slug' | 'name'>;
-  guest: Pick<Guest, 'firstName' | 'lastName' | 'email' | 'phone' | 'company'>;
+  guest: Pick<Guest, 'id' | 'firstName' | 'lastName' | 'email' | 'phone' | 'company'>;
 };
 
 /** Everything the dashboard shows, with dates flattened to YYYY-MM-DD. */
@@ -16,6 +16,9 @@ export function toAdminView(booking: BookingRecord) {
     reference: booking.reference,
     status: booking.status,
     paymentStatus: booking.paymentStatus,
+    // Set when a Vipps payment was created; tells the dashboard a refund
+    // can go through Vipps.
+    paymentReference: booking.paymentReference,
     startDate,
     endDate,
     days: daysBetween(startDate, endDate) + 1,
@@ -47,6 +50,6 @@ export function toAdminView(booking: BookingRecord) {
 export function toGuestView(booking: BookingRecord) {
   // The signature stays out too: it is dashboard evidence, and inlining the
   // image would bloat every guest response.
-  const { id, notes, cancelToken, signature, ...rest } = toAdminView(booking);
+  const { id, notes, cancelToken, signature, paymentReference, ...rest } = toAdminView(booking);
   return rest;
 }

@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { BookingStatus, CancelledBy, type Prisma } from '@cabin/database';
+import { BookingStatus, CancelledBy, PaymentStatus, type Prisma } from '@cabin/database';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { SpacesService } from '../spaces/spaces.service';
@@ -37,6 +37,7 @@ const INCLUDE = {
   space: { select: { slug: true, name: true } },
   guest: {
     select: {
+      id: true,
       firstName: true,
       lastName: true,
       email: true,
@@ -207,6 +208,7 @@ export class BookingsService {
 
     if (query.space) where.space = { slug: query.space };
     if (query.status) where.status = query.status;
+    if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
     if (query.from) where.endDate = { gte: parseIsoDate(query.from) };
     if (query.to) where.startDate = { lte: parseIsoDate(query.to) };
 
@@ -233,11 +235,19 @@ export class BookingsService {
 
   /** Counts per status, for the dashboard filter chips. */
   async summary(space?: string) {
-    const grouped = await this.prisma.booking.groupBy({
-      by: ['status'],
-      where: space ? { space: { slug: space } } : undefined,
-      _count: { _all: true },
-    });
+    const spaceFilter = space ? { space: { slug: space } } : undefined;
+
+    const [grouped, refunded] = await Promise.all([
+      this.prisma.booking.groupBy({
+        by: ['status'],
+        where: spaceFilter,
+        _count: { _all: true },
+      }),
+      // Refunded is a payment state, so it comes on top of the status counts.
+      this.prisma.booking.count({
+        where: { ...spaceFilter, paymentStatus: PaymentStatus.REFUNDED },
+      }),
+    ]);
 
     const counts = Object.fromEntries(
       Object.values(BookingStatus).map((status) => [status, 0]),
@@ -247,7 +257,7 @@ export class BookingsService {
       counts[row.status] = row._count._all;
     }
 
-    return counts;
+    return { ...counts, REFUNDED: refunded };
   }
 
   async findOne(id: string) {

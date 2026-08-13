@@ -4,6 +4,7 @@ import { BookingStatus } from '@cabin/database';
 import { toIsoDate } from '../common/dates';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGuestDto } from './dto/create-guest.dto';
+import { UpdateGuestDto } from './dto/update-guest.dto';
 
 /** Bookings that count as actual stays when summing what a guest has rented for. */
 const SPENT_STATUSES: BookingStatus[] = [
@@ -90,6 +91,27 @@ export class GuestsService {
         space: { slug: booking.space.slug, name: booking.space.name },
       })),
     };
+  }
+
+  /** The dashboard corrects a guest's contact details. */
+  async update(id: string, dto: UpdateGuestDto) {
+    const existing = await this.prisma.guest.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Fant ingen gjest med denne id-en');
+    }
+
+    const guest = await this.prisma.guest.update({
+      where: { id },
+      data: {
+        ...(dto.firstName !== undefined ? { firstName: dto.firstName } : {}),
+        ...(dto.lastName !== undefined ? { lastName: dto.lastName } : {}),
+        ...(dto.email !== undefined ? { email: dto.email.toLowerCase() } : {}),
+        ...(dto.phone !== undefined ? { phone: dto.phone || null } : {}),
+        ...(dto.company !== undefined ? { company: dto.company || null } : {}),
+      },
+    });
+
+    return { ...guest, createdAt: guest.createdAt.toISOString() };
   }
 
   async create(dto: CreateGuestDto) {

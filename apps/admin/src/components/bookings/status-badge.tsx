@@ -60,16 +60,16 @@ export const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   REFUNDED: "Refundert",
 };
 
+const PAYMENT_STYLES: Record<PaymentStatus, string> = {
+  UNPAID: "bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300",
+  PARTIALLY_PAID: "bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-300",
+  PAID: "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-300",
+  REFUNDED: "bg-violet-100 text-violet-900 dark:bg-violet-500/15 dark:text-violet-300",
+};
+
 export function PaymentBadge({ status }: { status: PaymentStatus }) {
   return (
-    <Badge
-      variant="outline"
-      className={
-        status === "PAID"
-          ? "border-emerald-300 text-emerald-800 dark:border-emerald-500/40 dark:text-emerald-300"
-          : "text-muted-foreground"
-      }
-    >
+    <Badge variant="secondary" className={PAYMENT_STYLES[status]}>
       {PAYMENT_LABELS[status]}
     </Badge>
   );

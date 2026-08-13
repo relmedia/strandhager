@@ -13,6 +13,7 @@ const EMPTY_COUNTS: BookingCounts = {
   DECLINED: 0,
   CANCELLED: 0,
   COMPLETED: 0,
+  REFUNDED: 0,
 };
 
 /**

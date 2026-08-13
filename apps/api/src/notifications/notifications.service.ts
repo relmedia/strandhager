@@ -229,6 +229,23 @@ export class NotificationsService {
     });
   }
 
+  /** The dashboard refunded the guest's Vipps payment. */
+  async notifyPaymentRefunded(booking: BookingMail): Promise<void> {
+    await this.fire({
+      to: booking.guestEmail,
+      subject: `Betalingen din er refundert (${booking.reference})`,
+      heading: 'Betalingen er refundert',
+      lines: [
+        `Hei ${booking.guestName}! Vi har refundert betalingen din for leien av ${booking.spaceName}.`,
+        'Beløpet tilbakeføres gjennom Vipps til kontoen eller kortet du betalte med. Det er normalt på plass i løpet av noen få virkedager.',
+      ],
+      facts: [
+        ['Referanse', booking.reference],
+        ['Refundert beløp', formatPrice(booking.total)],
+      ],
+    });
+  }
+
   /** The guest used their own cancellation link; the board should know. */
   async notifyBookingCancelledByGuest(booking: BookingMail): Promise<void> {
     const guest = this.notifyBookingDecision(booking, 'CANCELLED');

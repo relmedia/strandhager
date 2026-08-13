@@ -21,7 +21,17 @@ export class VippsService {
     return (process.env.VIPPS_BASE_URL ?? 'https://apitest.vipps.no').replace(/\/+$/, '');
   }
 
+  /**
+   * VIPPS_MOCK=true pretends every Vipps call succeeds, so the whole
+   * payment flow can be exercised locally without credentials. Must never
+   * be enabled in production.
+   */
+  private get mock(): boolean {
+    return process.env.VIPPS_MOCK === 'true';
+  }
+
   get configured(): boolean {
+    if (this.mock) return true;
     return Boolean(
       process.env.VIPPS_CLIENT_ID?.trim() &&
         process.env.VIPPS_CLIENT_SECRET?.trim() &&
@@ -46,6 +56,11 @@ export class VippsService {
     /** MSISDN (e.g. 4792926666) to prefill, if known. */
     phoneNumber?: string;
   }): Promise<{ redirectUrl: string }> {
+    if (this.mock) {
+      this.logger.warn(`MOCK: later som betalingen ${input.reference} er opprettet`);
+      return { redirectUrl: `https://pay.vipps.no/mock/${input.reference}` };
+    }
+
     const body = {
       amount: { currency: 'NOK', value: Math.round(input.amountNok * 100) },
       paymentMethod: { type: 'WALLET' },
@@ -70,11 +85,34 @@ export class VippsService {
    * Pulls the money after the customer has approved (authorized) the payment.
    */
   async capturePayment(reference: string, amountNok: number): Promise<void> {
+    if (this.mock) {
+      this.logger.warn(`MOCK: later som ${amountNok} kr er krevd inn for ${reference}`);
+      return;
+    }
+
     await this.request(
       'POST',
       `/epayment/v1/payments/${reference}/capture`,
       { modificationAmount: { currency: 'NOK', value: Math.round(amountNok * 100) } },
       `capture-${reference}`,
+    );
+  }
+
+  /**
+   * Sends captured money back to the customer. Vipps returns it to the card
+   * or account the payment was made from; no account details are needed.
+   */
+  async refundPayment(reference: string, amountNok: number): Promise<void> {
+    if (this.mock) {
+      this.logger.warn(`MOCK: later som ${amountNok} kr er refundert for ${reference}`);
+      return;
+    }
+
+    await this.request(
+      'POST',
+      `/epayment/v1/payments/${reference}/refund`,
+      { modificationAmount: { currency: 'NOK', value: Math.round(amountNok * 100) } },
+      `refund-${reference}`,
     );
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { ArrowUpRight } from "lucide-react";
 
@@ -17,6 +18,8 @@ import { formatDateRange, formatMoney } from "@/lib/format";
 import type { Booking } from "@/types/booking";
 
 export function BookingsTable({ bookings }: { bookings: Booking[] }) {
+  const router = useRouter();
+
   return (
     <div className="overflow-hidden rounded-lg border">
       <Table>
@@ -35,7 +38,11 @@ export function BookingsTable({ bookings }: { bookings: Booking[] }) {
 
         <TableBody>
           {bookings.map((booking) => (
-            <TableRow key={booking.id} className="group">
+            <TableRow
+              key={booking.id}
+              className="group cursor-pointer"
+              onClick={() => router.push(`/bokningar/${booking.id}`)}
+            >
               <TableCell>
                 <span className="font-medium">
                   {formatDateRange(booking.startDate, booking.endDate)}
