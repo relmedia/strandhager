@@ -5,6 +5,8 @@
  */
 
 const BRAND = '#3f9a28';
+/** The website's sea blue, used for the "strandhager" half of the wordmark. */
+const SEA = '#2f9fd0';
 const INK = '#1f2a20';
 const MUTED = '#5c6b5e';
 const SAND = '#f4f6ef';
@@ -14,6 +16,11 @@ const SITE_URL = (process.env.WEB_URL ?? process.env.WEB_ORIGIN ?? 'http://local
   '',
 );
 const LOGO_URL = `${SITE_URL}/images/logo.png`;
+const FACEBOOK_URL = 'https://www.facebook.com/groups/820245121802789/?locale=nb_NO';
+const INSTAGRAM_URL = 'https://www.instagram.com/strandhagene_parseller/';
+
+/** Inset horizontal rule that matches the 32px content padding instead of spanning the card. */
+const DIVIDER = `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;"><tr><td style="height:1px;background:#e6eae2;font-size:0;line-height:1px;">&nbsp;</td></tr></table>`;
 
 export type EmailContent = {
   heading: string;
@@ -85,20 +92,29 @@ export function renderEmail({
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden;">
             <tr>
-              <td align="center" style="padding:24px 32px 8px;background:#ffffff;">
-                <a href="${escapeAttribute(SITE_URL)}" style="text-decoration:none;color:${INK};">
-                  <img
-                    src="${escapeAttribute(LOGO_URL)}"
-                    alt="Ølberg strandhager"
-                    width="100"
-                    height="68"
-                    style="display:block;margin:0 auto 10px;border:0;outline:none;height:auto;max-width:100px;"
-                  />
+              <td align="center" style="padding:20px 32px;background:#ffffff;">
+                <a href="${escapeAttribute(SITE_URL)}" style="text-decoration:none;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                    <tr>
+                      <td style="vertical-align:middle;padding-right:10px;">
+                        <img
+                          src="${escapeAttribute(LOGO_URL)}"
+                          alt="Ølberg strandhager"
+                          width="56"
+                          height="38"
+                          style="display:block;border:0;outline:none;height:auto;max-width:56px;"
+                        />
+                      </td>
+                      <td style="vertical-align:middle;">
+                        <span style="font-size:19px;line-height:1;font-weight:600;letter-spacing:0.04em;"><span style="color:${BRAND};">Ølberg</span><span style="color:${SEA};">strandhager</span></span>
+                      </td>
+                    </tr>
+                  </table>
                 </a>
-                <p style="margin:0;color:${INK};font-size:18px;line-height:1.3;font-weight:700;letter-spacing:0.02em;">
-                  Ølberg strandhager
-                </p>
               </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px;background:#ffffff;">${DIVIDER}</td>
             </tr>
             <tr>
               <td style="padding:32px;">
@@ -110,10 +126,39 @@ export function renderEmail({
               </td>
             </tr>
             <tr>
-              <td style="padding:18px 32px;border-top:1px solid #e6eae2;">
-                <p style="margin:0;color:${MUTED};font-size:12px;line-height:1.6;">
-                  Ølberg strandhager · Strandhagane 50, 4053 Ræge · strandhager.no
-                </p>
+              <td style="padding:0 32px;">${DIVIDER}</td>
+            </tr>
+            <tr>
+              <td style="padding:16px 32px 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+                  <tr>
+                    <td style="vertical-align:middle;">
+                      <p style="margin:0;color:${MUTED};font-size:12px;line-height:1.6;">
+                        Ølberg strandhager · Strandhagane 50, 4053 Ræge · strandhager.no
+                      </p>
+                    </td>
+                    <td align="right" style="vertical-align:middle;white-space:nowrap;padding-left:12px;">
+                      <a href="${escapeAttribute(FACEBOOK_URL)}" style="text-decoration:none;display:inline-block;vertical-align:middle;">
+                        <img
+                          src="${escapeAttribute(`${SITE_URL}/images/email/facebook.png`)}"
+                          alt="Facebook"
+                          width="20"
+                          height="20"
+                          style="display:block;border:0;outline:none;"
+                        />
+                      </a>
+                      <a href="${escapeAttribute(INSTAGRAM_URL)}" style="text-decoration:none;display:inline-block;vertical-align:middle;margin-left:12px;">
+                        <img
+                          src="${escapeAttribute(`${SITE_URL}/images/email/instagram.png`)}"
+                          alt="Instagram"
+                          width="20"
+                          height="20"
+                          style="display:block;border:0;outline:none;"
+                        />
+                      </a>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
           </table>
