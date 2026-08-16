@@ -13,6 +13,7 @@ import { BookingsService } from './bookings.service';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsDto } from './dto/list-bookings.dto';
+import { ManualBookingDto } from './dto/manual-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 
 @Controller('bookings')
@@ -23,6 +24,12 @@ export class BookingsController {
   @Post()
   create(@Body() dto: CreateBookingDto) {
     return this.bookings.create(dto);
+  }
+
+  /** Dashboard: enters a booking by hand on behalf of a guest. */
+  @Post('manual')
+  createManual(@Body() dto: ManualBookingDto) {
+    return this.bookings.createManual(dto);
   }
 
   /** Public: opens a booking from the link the guest was given. */

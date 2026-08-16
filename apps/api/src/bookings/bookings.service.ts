@@ -30,6 +30,7 @@ import { BLOCKING_STATUSES, findOverlapping } from './overlap';
 import { generateCancelToken, generateReference } from './reference';
 import { toAdminView, toGuestView, type BookingRecord } from './bookings.serializer';
 import type { CreateBookingDto } from './dto/create-booking.dto';
+import type { ManualBookingDto } from './dto/manual-booking.dto';
 import type { UpdateBookingDto } from './dto/update-booking.dto';
 import type { ListBookingsDto } from './dto/list-bookings.dto';
 
@@ -151,6 +152,82 @@ export class BookingsService {
       /** Only ever returned here, so the guest can keep their cancel link. */
       cancelToken: booking.cancelToken,
     };
+  }
+
+  /**
+   * A booking entered by hand in the dashboard. Unlike the public flow it
+   * ignores whether online booking is switched on and skips the notice
+   * period, since the administrator is the one entering it. The booking is
+   * born confirmed, and the guest can optionally get the usual confirmation
+   * e-mail with the agreement and a Vipps payment link.
+   */
+  async createManual(dto: ManualBookingDto) {
+    const space = await this.spaces.findBySlug(dto.space);
+    const { start, end } = assertBookableRange(
+      dto.startDate,
+      dto.endDate,
+      space.maxBookingDays,
+    );
+
+    if (dto.guests > space.maxGuests) {
+      throw new BadRequestException(
+        `${space.name} har plass til inntil ${space.maxGuests} personer`,
+      );
+    }
+
+    const quote = priceOrThrow(space.rates, space.cleaningFee, start, end);
+
+    const booking = await this.prisma.$transaction(
+      async (tx) => {
+        const clashes = await findOverlapping(tx, space.id, start, end);
+        if (clashes.length > 0) {
+          throw new ConflictException(
+            `Én eller flere av dagene er allerede opptatt (booking ${clashes[0].reference}).`,
+          );
+        }
+
+        const shut = await findOverlappingBlackouts(tx, space.id, start, end);
+        if (shut.length > 0) {
+          throw new ConflictException(
+            'Felleshuset er stengt én eller flere av disse dagene.',
+          );
+        }
+
+        const guest = await upsertGuest(tx, dto);
+
+        return createWithReference(tx, {
+          spaceId: space.id,
+          guestId: guest.id,
+          startDate: parseIsoDate(start),
+          endDate: parseIsoDate(end),
+          guests: dto.guests,
+          purpose: dto.purpose ?? null,
+          message: null,
+          notes: dto.notes ?? null,
+          dayTotal: quote.dayTotal,
+          cleaningFee: quote.cleaningFee,
+          total: quote.total,
+          status: BookingStatus.CONFIRMED,
+          confirmedAt: new Date(),
+          confirmedByName: dto.confirmedByName ?? null,
+        });
+      },
+      { isolationLevel: 'Serializable' },
+    );
+
+    if (dto.notify ?? true) {
+      const [attachments, payment] = await Promise.all([
+        this.agreementAttachment(booking, space.maxGuests),
+        this.payments.paymentForBooking(booking),
+      ]);
+
+      await this.notifications.notifyBookingDecision(toMail(booking), 'CONFIRMED', {
+        attachments,
+        payment,
+      });
+    }
+
+    return toAdminView(booking);
   }
 
   /** Looks a booking up from the guest's link. */

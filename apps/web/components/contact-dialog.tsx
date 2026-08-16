@@ -16,7 +16,7 @@ import { TURNSTILE_SITE_KEY, Turnstile } from "@/components/turnstile";
 import { ContactError, sendContactMessage } from "@/lib/contact";
 import type { ContactContent } from "@/lib/site-content";
 
-type Topic = "GENERAL" | "FELLESHUSET" | "PARSELLENE";
+export type Topic = "GENERAL" | "FELLESHUSET" | "PARSELLENE";
 
 const TOPICS: { value: Topic; label: string }[] = [
   { value: "GENERAL", label: "Generell henvendelse" },
@@ -42,11 +42,19 @@ type ContactDialogProps = {
   onClose: () => void;
   /** The people behind each topic, shown as the direct alternative. */
   contact: ContactContent;
+  /** Preselected topic, e.g. FELLESHUSET when opened from the booking panel. */
+  initialTopic?: Topic;
 };
 
 /** The contact form behind the Kontakt button in the header. */
-export function ContactDialog({ open, onClose, contact }: ContactDialogProps) {
-  const [draft, setDraft] = useState<Draft>(BLANK);
+export function ContactDialog({
+  open,
+  onClose,
+  contact,
+  initialTopic = "GENERAL",
+}: ContactDialogProps) {
+  const blank: Draft = { ...BLANK, topic: initialTopic };
+  const [draft, setDraft] = useState<Draft>(blank);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -93,7 +101,7 @@ export function ContactDialog({ open, onClose, contact }: ContactDialogProps) {
       });
 
       setDone(true);
-      setDraft(BLANK);
+      setDraft(blank);
     } catch (cause) {
       setError(
         cause instanceof ContactError

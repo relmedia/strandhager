@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { CalendarX2, RefreshCw, Search } from "lucide-react";
 
 import { BookingsTable } from "@/components/bookings/bookings-table";
+import { NewBookingDialog } from "@/components/bookings/new-booking-dialog";
 import { STATUS_LABELS } from "@/components/bookings/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +31,11 @@ const TABS: { value: TabValue; label: string }[] = [
 
 export function BookingsList({
   initialStatus = null,
+  adminName = "",
 }: {
   initialStatus?: BookingStatus | null;
+  /** Signs manually entered bookings as the confirming administrator. */
+  adminName?: string;
 }) {
   const [status, setStatus] = useState<TabValue>(initialStatus);
   const [query, setQuery] = useState("");
@@ -117,16 +121,19 @@ export function BookingsList({
           </Button>
         ) : null}
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Oppdater listen"
-          onClick={() => void reload()}
-          className="ml-auto"
-        >
-          <RefreshCw className="size-4" />
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Oppdater listen"
+            onClick={() => void reload()}
+          >
+            <RefreshCw className="size-4" />
+          </Button>
+
+          <NewBookingDialog adminName={adminName} onCreated={() => void reload()} />
+        </div>
       </form>
 
       {error ? (

@@ -172,7 +172,7 @@ export function RentalSection({ utleie, contact, space }: RentalSectionProps) {
           {space ? (
             <>
               <PriceCards space={space} />
-              <BookingPanel space={space} contact={contact.booking} />
+              <BookingPanel space={space} contact={contact} />
             </>
           ) : null}
 

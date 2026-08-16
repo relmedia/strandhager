@@ -21,6 +21,58 @@ export function getBookingCounts(space?: string) {
   return apiFetch<BookingCounts>("/bookings/summary", { searchParams: { space } });
 }
 
+export type ManualBooking = {
+  space: string;
+  startDate: string;
+  endDate: string;
+  guests: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  company?: string;
+  purpose?: string;
+  notes?: string;
+  /** Whether the guest gets the confirmation e-mail. */
+  notify: boolean;
+  confirmedByName?: string;
+};
+
+/** Enters a confirmed booking by hand, on behalf of a guest. */
+export function createManualBooking(input: ManualBooking) {
+  return apiFetch<Booking>("/bookings/manual", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export type SpaceAvailability = {
+  /** Nothing can be booked before this date (notice period). */
+  minDate: string;
+  bookedDates: string[];
+  closedDates: string[];
+};
+
+/** Booked and closed days in a window, for the manual-booking calendar. */
+export function getAvailability(space: string, from: string, to: string) {
+  return apiFetch<SpaceAvailability>("/availability", {
+    searchParams: { space, from, to },
+  });
+}
+
+export type PriceQuote = {
+  days: { date: string; price: number }[];
+  dayTotal: number;
+  cleaningFee: number;
+  total: number;
+};
+
+export function getQuote(space: string, from: string, to: string) {
+  return apiFetch<PriceQuote>("/pricing/quote", {
+    searchParams: { space, from, to },
+  });
+}
+
 export function updateBooking(id: string, patch: BookingUpdate) {
   return apiFetch<Booking>(`/bookings/${id}`, {
     method: "PATCH",

@@ -24,6 +24,8 @@ import {
 import { BookingReceipt } from "@/components/booking/booking-receipt";
 import { PriceRow } from "@/components/booking/price-cards";
 import { RentalTermsDialog } from "@/components/booking/rental-terms";
+import { ContactDialog } from "@/components/contact-dialog";
+import type { ContactContent } from "@/lib/site-content";
 import {
   BookingError,
   createBooking,
@@ -68,15 +70,12 @@ const EMPTY: Details = {
   message: "",
 };
 
-/** Who to reach when bookings are handled manually. */
-export type BookingContactInfo = { name: string; email: string; phone: string };
-
 export function BookingPanel({
   space,
   contact,
 }: {
   space: Space;
-  contact: BookingContactInfo;
+  contact: ContactContent;
 }) {
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -510,8 +509,11 @@ function BookingClosed({
   contact,
 }: {
   spaceName: string;
-  contact: BookingContactInfo;
+  contact: ContactContent;
 }) {
+  const [contactOpen, setContactOpen] = useState(false);
+  const booking = contact.booking;
+
   return (
     <div>
       <div className="flex items-center gap-4">
@@ -526,29 +528,44 @@ function BookingClosed({
       </div>
 
       <p className="mt-5 font-display text-ink text-xl leading-snug">
-        Nettbooking er stengt for øyeblikket
+        Book {spaceName} på e-post eller telefon
       </p>
 
       <p className="mt-4 text-ink-muted text-sm leading-relaxed">
-        Bruk kalenderen til å se hvilke dager som er ledige. Vil du leie {spaceName}? Ta
-        kontakt om dagene du ønsker, så legger vi inn bookingen for deg.
+        Bruk kalenderen til å se hvilke dager som er ledige. Send en e-post eller ring{" "}
+        {booking.name} med dagene du ønsker, så legger vi inn bookingen for deg.
       </p>
 
       <div className="mt-6 border-ink/10 border-t pt-6 text-sm">
-        <p className="text-ink">{contact.name}</p>
+        <p className="text-ink">{booking.name}</p>
         <a
-          href={`mailto:${contact.email}`}
+          href={`mailto:${booking.email}`}
           className="mt-1 block text-ink-muted underline-offset-4 transition-colors hover:text-brand-deep hover:underline"
         >
-          {contact.email}
+          {booking.email}
         </a>
         <a
-          href={`tel:${contact.phone.replace(/\s/g, "")}`}
+          href={`tel:${booking.phone.replace(/\s/g, "")}`}
           className="mt-1 block text-ink-muted underline-offset-4 transition-colors hover:text-brand-deep hover:underline"
         >
-          {contact.phone}
+          {booking.phone}
         </a>
+
+        <button
+          type="button"
+          onClick={() => setContactOpen(true)}
+          className="mt-5 rounded-full bg-brand px-5 py-2 font-medium text-sm text-white shadow-brand-deep/25 shadow-sm transition-all duration-300 hover:bg-brand-deep hover:shadow-brand-deep/30 hover:shadow-md"
+        >
+          Kontakt
+        </button>
       </div>
+
+      <ContactDialog
+        open={contactOpen}
+        onClose={() => setContactOpen(false)}
+        contact={contact}
+        initialTopic="FELLESHUSET"
+      />
     </div>
   );
 }
