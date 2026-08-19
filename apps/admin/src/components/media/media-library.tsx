@@ -54,6 +54,10 @@ export function MediaLibrary() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LibraryFile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  // Enter/leave events fire for every child, so a depth counter tells apart
+  // "left the drop zone" from "moved over a child element".
+  const dragDepth = useRef(0);
 
   const load = useCallback(async (target: Folder) => {
     setFiles(null);
@@ -73,8 +77,12 @@ export function MediaLibrary() {
   }, [folder, load]);
 
   /** Uploads the picked files one by one so each error is reported alone. */
-  async function handleFiles(picked: FileList) {
-    const list = [...picked];
+  async function handleFiles(picked: File[]) {
+    const list = picked.filter((file) => file.type.startsWith("image/"));
+    if (list.length === 0) {
+      toast.error("Ingen av filene er bilder");
+      return;
+    }
     setProgress({ done: 0, total: list.length });
 
     let failed = 0;
@@ -117,7 +125,39 @@ export function MediaLibrary() {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className="relative space-y-4"
+      onDragEnter={(event) => {
+        event.preventDefault();
+        dragDepth.current += 1;
+        setDragging(true);
+      }}
+      onDragOver={(event) => event.preventDefault()}
+      onDragLeave={() => {
+        dragDepth.current -= 1;
+        if (dragDepth.current <= 0) {
+          dragDepth.current = 0;
+          setDragging(false);
+        }
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        dragDepth.current = 0;
+        setDragging(false);
+        if (progress === null && event.dataTransfer.files.length > 0) {
+          void handleFiles([...event.dataTransfer.files]);
+        }
+      }}
+    >
+      {dragging ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-primary border-dashed bg-background/85">
+          <p className="flex items-center gap-2 font-medium text-sm">
+            <ImageUp className="size-5" />
+            Slipp bildene her for å laste dem opp
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         {FOLDERS.map((option) => (
           <button
@@ -153,7 +193,7 @@ export function MediaLibrary() {
             accept="image/jpeg,image/png,image/webp,image/avif"
             className="hidden"
             onChange={(event) => {
-              if (event.target.files?.length) void handleFiles(event.target.files);
+              if (event.target.files?.length) void handleFiles([...event.target.files]);
               event.target.value = "";
             }}
           />
