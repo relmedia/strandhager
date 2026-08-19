@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { HeroForm } from "@/components/cms/hero-form";
 import { ImageField } from "@/components/cms/image-field";
 import { NavEditor, type NavTarget } from "@/components/cms/nav-editor";
 import { ParselleneForm } from "@/components/cms/parsellene-form";
-import { SectionPanel } from "@/components/cms/section-panel";
+import { SectionPanel, type AutoSaveStatus } from "@/components/cms/section-panel";
 import { UtleieForm } from "@/components/cms/utleie-form";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
@@ -19,18 +19,61 @@ import { useGalleries } from "@/hooks/use-galleries";
 import { apiFetch } from "@/lib/api";
 import type { SectionKey, SiteSections } from "@/types/site-content";
 
+/** How long after the last keystroke the changed sections are written. */
+const AUTOSAVE_DELAY_MS = 1200;
+
 export function SiteContentEditor() {
   const [sections, setSections] = useState<SiteSections | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
+  const [status, setStatus] = useState<AutoSaveStatus>("idle");
   // Only used to offer the gallery pages as menu destinations.
   const { galleries } = useGalleries();
+
+  // Auto-save bookkeeping lives in refs so the debounce timer always sees
+  // the latest state without re-arming on every keystroke render.
+  const sectionsRef = useRef<SiteSections | null>(null);
+  sectionsRef.current = sections;
+  const dirtyRef = useRef(new Set<SectionKey>());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     apiFetch<SiteSections>("/site-content")
       .then(setSections)
       .catch(() => setError("Kunne ikke laste innholdet. Sjekk at API-et kjører."));
   }, []);
+
+  /** Writes every changed section, keeping them dirty if the write fails. */
+  const flush = useCallback(async () => {
+    const current = sectionsRef.current;
+    const keys = [...dirtyRef.current];
+    if (!current || keys.length === 0) return;
+
+    dirtyRef.current.clear();
+    setStatus("saving");
+
+    try {
+      for (const key of keys) {
+        await apiFetch(`/site-content/${key}`, {
+          method: "PUT",
+          body: JSON.stringify({ data: current[key] }),
+        });
+      }
+      // New edits may have arrived while the write was in flight.
+      setStatus(dirtyRef.current.size > 0 ? "pending" : "saved");
+    } catch {
+      for (const key of keys) dirtyRef.current.add(key);
+      setStatus("error");
+      toast.error("Kunne ikke lagre endringene. De prøves lagret på nytt.");
+    }
+  }, []);
+
+  // A pending change should not be lost when the admin leaves the page.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      void flush();
+    };
+  }, [flush]);
 
   if (error) {
     return <p className="text-destructive text-sm">{error}</p>;
@@ -45,26 +88,15 @@ export function SiteContentEditor() {
     );
   }
 
-  const patch = <K extends SectionKey>(key: K, value: SiteSections[K]) =>
+  /** Applies an edit and schedules the auto-save shortly after the last one. */
+  const patch = <K extends SectionKey>(key: K, value: SiteSections[K]) => {
     setSections((current) => (current ? { ...current, [key]: value } : current));
+    dirtyRef.current.add(key);
+    setStatus("pending");
 
-  async function save(keys: SectionKey[], label: string) {
-    if (!sections) return;
-    setSaving(label);
-    try {
-      for (const key of keys) {
-        await apiFetch(`/site-content/${key}`, {
-          method: "PUT",
-          body: JSON.stringify({ data: sections[key] }),
-        });
-      }
-      toast.success(`${label} lagret. Endringene er synlige på nettsiden.`);
-    } catch {
-      toast.error(`Kunne ikke lagre ${label.toLowerCase()}.`);
-    } finally {
-      setSaving(null);
-    }
-  }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => void flush(), AUTOSAVE_DELAY_MS);
+  };
 
   const { general, nav, hero, utleie, parsellene, location, contact, footer } = sections;
 
@@ -96,8 +128,7 @@ export function SiteContentEditor() {
         <SectionPanel
           title="Generelt"
           description="Navn, logo, meny og bunntekst."
-          saving={saving === "Generelt"}
-          onSave={() => save(["general", "nav", "footer"], "Generelt")}
+          status={status}
         >
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
@@ -136,8 +167,7 @@ export function SiteContentEditor() {
         <SectionPanel
           title="Hero"
           description="Toppen av forsiden: overskrift, tekster, knapper og bildekarusell."
-          saving={saving === "Hero"}
-          onSave={() => save(["hero"], "Hero")}
+          status={status}
         >
           <HeroForm value={hero} onChange={(v) => patch("hero", v)} />
         </SectionPanel>
@@ -147,8 +177,7 @@ export function SiteContentEditor() {
         <SectionPanel
           title="Utleie"
           description="Utleieseksjonen: tekster, fasiliteter, utstyr, priser og galleri."
-          saving={saving === "Utleie"}
-          onSave={() => save(["utleie"], "Utleie")}
+          status={status}
         >
           <UtleieForm value={utleie} onChange={(v) => patch("utleie", v)} />
         </SectionPanel>
@@ -158,8 +187,7 @@ export function SiteContentEditor() {
         <SectionPanel
           title="Parsellene"
           description="Seksjonen om parsellene: tekster, nøkkeltall, hytteinnhold, bilder, hagestyret, arkitekter og venteliste."
-          saving={saving === "Parsellene"}
-          onSave={() => save(["parsellene"], "Parsellene")}
+          status={status}
         >
           <ParselleneForm value={parsellene} onChange={(v) => patch("parsellene", v)} />
         </SectionPanel>
@@ -169,8 +197,7 @@ export function SiteContentEditor() {
         <SectionPanel
           title="Hvor er vi"
           description="Adresse, kart og bilde."
-          saving={saving === "Hvor er vi"}
-          onSave={() => save(["location"], "Hvor er vi")}
+          status={status}
         >
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
@@ -225,8 +252,7 @@ export function SiteContentEditor() {
         <SectionPanel
           title="Kontakt"
           description="Kontaktpersoner for utleie og parseller. Vises i bunnteksten og i utleieseksjonen."
-          saving={saving === "Kontakt"}
-          onSave={() => save(["contact"], "Kontakt")}
+          status={status}
         >
           <div className="space-y-6">
             <div className="space-y-4">
