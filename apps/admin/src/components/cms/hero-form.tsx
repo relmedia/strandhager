@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { ConfirmDelete } from "@/components/cms/confirm-delete";
 import { TextField, TextareaField } from "@/components/cms/fields";
 import { ImageField } from "@/components/cms/image-field";
+import { MediaLibraryPicker } from "@/components/cms/media-library-picker";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -113,15 +114,30 @@ export function HeroForm({ value, onChange }: HeroFormProps) {
             />
           </div>
         ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => set("slides", [...value.slides, { src: "", alt: "" }])}
-        >
-          <Plus className="size-4" />
-          Legg til bilde
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => set("slides", [...value.slides, { src: "", alt: "" }])}
+          >
+            <Plus className="size-4" />
+            Legg til bilde
+          </Button>
+          <MediaLibraryPicker
+            folder="alle"
+            usedSrcs={value.slides.map((slide) => slide.src)}
+            onAdd={(picked) =>
+              set("slides", [
+                ...value.slides,
+                ...picked.map((image) => ({ src: image.src, alt: "" })),
+              ])
+            }
+            triggerLabel="Legg til fra media"
+            title="Mediebiblioteket"
+            description="Velg ett eller flere bilder som allerede er lastet opp."
+          />
+        </div>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { ArrowUpRight, Plus, Tags } from "lucide-react";
 import { ConfirmDelete } from "@/components/cms/confirm-delete";
 import { StringListField, TextField, TextareaField } from "@/components/cms/fields";
 import { ImageField } from "@/components/cms/image-field";
+import { MediaLibraryPicker } from "@/components/cms/media-library-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -236,15 +237,30 @@ export function UtleieForm({ value, onChange }: UtleieFormProps) {
             </div>
           </div>
         ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => set("gallery", [...value.gallery, { src: "", alt: "", caption: "" }])}
-        >
-          <Plus className="size-4" />
-          Legg til galleribilde
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => set("gallery", [...value.gallery, { src: "", alt: "", caption: "" }])}
+          >
+            <Plus className="size-4" />
+            Legg til galleribilde
+          </Button>
+          <MediaLibraryPicker
+            folder="alle"
+            usedSrcs={value.gallery.map((item) => item.src)}
+            onAdd={(picked) =>
+              set("gallery", [
+                ...value.gallery,
+                ...picked.map((image) => ({ src: image.src, alt: "", caption: "" })),
+              ])
+            }
+            triggerLabel="Legg til fra media"
+            title="Mediebiblioteket"
+            description="Velg ett eller flere bilder som allerede er lastet opp."
+          />
+        </div>
       </div>
 
     </div>
