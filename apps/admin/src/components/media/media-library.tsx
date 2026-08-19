@@ -220,14 +220,14 @@ export function MediaLibrary() {
             {files.map((file) => (
               <li
                 key={file.url}
-                className="group overflow-hidden rounded-lg border transition-colors hover:border-input"
+                className="group overflow-hidden rounded-lg border transition-colors duration-200 hover:border-input hover:bg-muted/60"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={mediaUrl(file.url)}
                   alt=""
                   loading="lazy"
-                  className="h-28 w-full object-cover"
+                  className="h-28 w-full object-cover transition-[filter] duration-200 group-hover:brightness-90"
                 />
                 <div className="flex items-center gap-1 px-2 py-1.5">
                   <div className="min-w-0 flex-1">
