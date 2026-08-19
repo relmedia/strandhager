@@ -7,6 +7,7 @@ import {
   Get,
   Post,
   Query,
+  ServiceUnavailableException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -153,6 +154,15 @@ export class MediaController {
         addRandomSuffix: false,
       });
       return { url: blob.url };
+    }
+
+    // On Vercel there is no writable disk, so a missing token is a setup
+    // error — say so plainly instead of crashing on mkdir.
+    if (process.env.VERCEL) {
+      throw new ServiceUnavailableException(
+        'Opplasting er ikke konfigurert: BLOB_READ_WRITE_TOKEN mangler. ' +
+          'Koble Blob-lageret til API-prosjektet under Storage i Vercel, og deploy på nytt.',
+      );
     }
 
     const dir = document ? DOCUMENTS_DIR : UPLOADS_DIR;
