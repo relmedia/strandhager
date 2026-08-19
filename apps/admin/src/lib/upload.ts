@@ -1,4 +1,4 @@
-import { API_URL } from "@/lib/api";
+import { API_URL, apiFetch } from "@/lib/api";
 
 export type UploadedImage = {
   url: string;
@@ -45,6 +45,14 @@ export async function uploadDocument(file: File): Promise<{ url: string }> {
   }
 
   return (await response.json()) as { url: string };
+}
+
+/** Deletes an uploaded file from the server (disk locally, Blob in prod). */
+export function deleteMedia(url: string) {
+  return apiFetch<{ ok: true }>("/media", {
+    method: "DELETE",
+    searchParams: { url },
+  });
 }
 
 export async function uploadImage(file: File): Promise<UploadedImage> {

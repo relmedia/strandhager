@@ -2,9 +2,10 @@
 
 import { useRef, useState } from "react";
 
-import { ImageUp } from "lucide-react";
+import { ImageUp, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { MediaLibraryPicker } from "@/components/cms/media-library-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,6 +69,30 @@ export function ImageField({ label, value, onChange }: ImageFieldProps) {
             {uploading ? <Spinner className="size-4" /> : <ImageUp className="size-4" />}
             Last opp
           </Button>
+          <MediaLibraryPicker
+            folder="alle"
+            usedSrcs={[]}
+            single
+            triggerSize="default"
+            triggerLabel="Velg fra media"
+            title="Mediebiblioteket"
+            description="Velg et bilde som allerede er lastet opp."
+            onAdd={(images) => {
+              if (images[0]) onChange(images[0].src);
+            }}
+          />
+          {value ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Fjern bildet"
+              title="Fjern bildet"
+              onClick={() => onChange("")}
+            >
+              <X className="size-4" />
+            </Button>
+          ) : null}
           <input
             ref={fileRef}
             type="file"

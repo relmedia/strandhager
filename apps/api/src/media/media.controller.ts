@@ -1,10 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
+  NotFoundException,
   Post,
   Query,
   ServiceUnavailableException,
@@ -13,7 +22,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { list, put } from '@vercel/blob';
+import { del, list, put } from '@vercel/blob';
 
 // In local development media lives in the public web app so Next.js serves
 // it directly. In production the API has no shared disk, so files go to
@@ -172,5 +181,57 @@ export class MediaController {
     writeFileSync(join(dir, filename), file.buffer);
 
     return { url: `/${folder}/${filename}` };
+  }
+
+  /**
+   * Deletes a stored file: a Blob URL in production, or any file under the
+   * web app's public folder locally (uploads, dokumenter and repo images).
+   */
+  @Delete()
+  async remove(@Query('url') url?: string): Promise<{ ok: true }> {
+    if (!url) {
+      throw new BadRequestException('Oppgi url-parameteren til filen som skal slettes');
+    }
+
+    // Blob uploads carry their full https URL.
+    if (/^https:\/\//.test(url)) {
+      const parsed = new URL(url);
+      const deletable =
+        parsed.hostname.endsWith('.public.blob.vercel-storage.com') &&
+        /^\/(uploads|dokumenter)\//.test(parsed.pathname);
+
+      if (!deletable || !useBlob()) {
+        throw new BadRequestException('Denne filen kan ikke slettes herfra');
+      }
+
+      await del(url);
+      return { ok: true };
+    }
+
+    // Local files: any path under the known public folders, as long as no
+    // segment can climb out of them and the extension is one we manage.
+    const relative = url.replace(/^\//, '');
+    const segments = relative.split('/');
+    const ext = extname(relative).toLowerCase();
+
+    const valid =
+      ['images', 'uploads', 'dokumenter'].includes(segments[0]) &&
+      segments.every(
+        (segment) =>
+          segment && segment !== '.' && segment !== '..' && !segment.includes('\\'),
+      ) &&
+      (ALLOWED.has(ext) || ALLOWED_DOCUMENTS.has(ext));
+
+    if (!valid) {
+      throw new BadRequestException('Denne filen kan ikke slettes herfra');
+    }
+
+    const file = join(PUBLIC_DIR, ...segments);
+    if (!existsSync(file)) {
+      throw new NotFoundException('Fant ikke filen. Den kan allerede være slettet.');
+    }
+
+    unlinkSync(file);
+    return { ok: true };
   }
 }

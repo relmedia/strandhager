@@ -41,6 +41,9 @@ type MediaLibraryPickerProps = {
   triggerLabel?: string;
   title?: string;
   description?: string;
+  /** Pick exactly one image instead of a multi-selection. */
+  single?: boolean;
+  triggerSize?: React.ComponentProps<typeof Button>["size"];
 };
 
 export function MediaLibraryPicker({
@@ -50,6 +53,8 @@ export function MediaLibraryPicker({
   triggerLabel = "Legg til fra mappen",
   title = "Bilder i mappen",
   description = "Bilder som allerede ligger på serveren. Velg dem du vil legge til igjen.",
+  single = false,
+  triggerSize = "sm",
 }: MediaLibraryPickerProps) {
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<LibraryFile[] | null>(null);
@@ -86,7 +91,7 @@ export function MediaLibraryPicker({
         selected.map(async (src) => ({ src, ...(await readDimensionsFromUrl(mediaUrl(src))) })),
       );
       onAdd(picked);
-      toast.success(`${picked.length} bilde(r) lagt til`);
+      if (!single) toast.success(`${picked.length} bilde(r) lagt til`);
       setOpen(false);
     } finally {
       setAdding(false);
@@ -96,7 +101,7 @@ export function MediaLibraryPicker({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
+        <Button type="button" variant="outline" size={triggerSize}>
           <FolderOpen className="size-4" />
           {triggerLabel}
         </Button>
@@ -116,7 +121,9 @@ export function MediaLibraryPicker({
             </div>
           ) : available.length === 0 ? (
             <p className="py-10 text-center text-muted-foreground text-sm">
-              Alle bildene i mappen er allerede i bruk.
+              {files.length === 0
+                ? "Ingen bilder i mappen ennå."
+                : "Alle bildene i mappen er allerede i bruk."}
             </p>
           ) : (
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -132,7 +139,9 @@ export function MediaLibraryPicker({
                         setSelected((current) =>
                           current.includes(file.url)
                             ? current.filter((src) => src !== file.url)
-                            : [...current, file.url],
+                            : single
+                              ? [file.url]
+                              : [...current, file.url],
                         )
                       }
                       className={`group relative block w-full overflow-hidden rounded-lg border text-left transition-colors ${
@@ -178,7 +187,7 @@ export function MediaLibraryPicker({
               onClick={addSelected}
             >
               {adding ? <Spinner className="size-4" /> : null}
-              Legg til
+              {single ? "Velg" : "Legg til"}
             </Button>
           </div>
         </DialogFooter>
