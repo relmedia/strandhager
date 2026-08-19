@@ -10,19 +10,23 @@ import {
 import { basename, extname, join, resolve } from 'node:path';
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
   NotFoundException,
   Post,
   Query,
+  Req,
   ServiceUnavailableException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Request } from 'express';
 import { memoryStorage } from 'multer';
 import { del, list, put } from '@vercel/blob';
+import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 
 // In local development media lives in the public web app so Next.js serves
 // it directly. In production the API has no shared disk, so files go to
@@ -82,6 +86,45 @@ type LibraryFile = {
 
 @Controller('media')
 export class MediaController {
+  /** Tells the admin whether uploads live in Vercel Blob. */
+  @Get('config')
+  config(): { blob: boolean } {
+    return { blob: useBlob() };
+  }
+
+  /**
+   * Issues short-lived tokens so the browser can upload straight to Vercel
+   * Blob. Vercel caps function request bodies at ~4.5 MB, so large images
+   * cannot travel through the API itself; with a token from here the file
+   * goes directly to the store instead.
+   */
+  @Post('client-upload')
+  clientUpload(@Req() request: Request, @Body() body: HandleUploadBody) {
+    return handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname) => {
+        const ext = extname(pathname).toLowerCase();
+        const valid =
+          /^(uploads|dokumenter)\/[^/\\]+$/.test(pathname) &&
+          (ALLOWED.has(ext) || ALLOWED_DOCUMENTS.has(ext));
+
+        if (!valid) {
+          throw new BadRequestException('Ugyldig filnavn eller filtype');
+        }
+
+        return {
+          allowedContentTypes: [...new Set(Object.values(CONTENT_TYPES))],
+          maximumSizeInBytes: 25 * 1024 * 1024,
+          addRandomSuffix: false,
+        };
+      },
+      // Vercel calls this when the upload lands; the library reads the store
+      // directly, so there is nothing to record.
+      onUploadCompleted: async () => {},
+    });
+  }
+
   /** Lists images already stored so the admin can re-add removed ones. */
   @Get('library')
   async library(@Query('folder') folder = 'alle'): Promise<{ files: LibraryFile[] }> {
