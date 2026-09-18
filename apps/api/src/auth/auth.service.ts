@@ -40,9 +40,9 @@ export class AuthService {
   }
 
   /**
-   * Password was right. With two-factor on (the default) a one-time code is
-   * e-mailed and the JWT waits for /auth/verify; with it off the token is
-   * issued straight away.
+   * Password was right. With two-factor off (the default) the token is issued
+   * straight away; with it on a one-time code is e-mailed and the JWT waits
+   * for /auth/verify.
    */
   async login(user: PublicUser) {
     const fresh = await this.prisma.adminUser.findUnique({ where: { id: user.id } });

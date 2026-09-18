@@ -374,7 +374,9 @@ model AdminUser {
   /// Set for invited users with a temporary password; cleared when they pick their own.
   mustChangePassword Boolean @default(false)
   /// When on, logging in also requires a one-time code sent by e-mail.
-  twoFactorEnabled Boolean @default(true)
+  /// Off by default; each user turns it on for their own account under
+  /// Innstillinger → Din konto.
+  twoFactorEnabled Boolean @default(false)
 
   challenges LoginChallenge[]
 
