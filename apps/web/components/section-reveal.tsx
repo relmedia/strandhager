@@ -25,9 +25,12 @@ export function SectionReveal({ children, className, id }: SectionRevealProps) {
       const mm = gsap.matchMedia();
 
       mm.add("(prefers-reduced-motion: reduce)", () => {
-        gsap.set(root.querySelectorAll("[data-reveal], [data-reveal-rule]"), {
-          clearProps: "all",
-        });
+        gsap.set(
+          root.querySelectorAll(
+            "[data-reveal], [data-reveal-rule], [data-reveal-clip], [data-slide]",
+          ),
+          { clearProps: "all" },
+        );
       });
 
       mm.add("(prefers-reduced-motion: no-preference)", () => {
@@ -39,6 +42,10 @@ export function SectionReveal({ children, className, id }: SectionRevealProps) {
             duration: 0.9,
             ease: "power3.out",
             delay: index * 0.06,
+            // Drop the inline transform/opacity once the reveal lands. GSAP
+            // writes transform inline, which outranks Tailwind's hover:-translate
+            // rules and would leave the card hover lifts dead on arrival.
+            clearProps: "opacity,transform",
             scrollTrigger: {
               trigger: el,
               start: "top 88%",
@@ -75,23 +82,62 @@ export function SectionReveal({ children, className, id }: SectionRevealProps) {
           });
         });
 
-        const media = root.querySelector<HTMLElement>("[data-parallax]");
-        if (media) {
+        // Image frames unmask from the bottom edge instead of fading, so the
+        // photo is never shown at partial opacity.
+        const frames = root.querySelectorAll<HTMLElement>("[data-reveal-clip]");
+        frames.forEach((el) => {
+          gsap.from(el, {
+            clipPath: "inset(100% 0% 0% 0%)",
+            duration: 1.3,
+            ease: "power3.inOut",
+            clearProps: "clipPath",
+            scrollTrigger: {
+              trigger: el,
+              start: "top 88%",
+              toggleActions: "play none none none",
+            },
+          });
+        });
+
+        // Columns and bands that enter from the side. Direction comes from the
+        // attribute so the two halves of a split can lean towards each other.
+        const sliders = root.querySelectorAll<HTMLElement>("[data-slide]");
+        sliders.forEach((el, index) => {
+          const from = el.dataset.slide === "right" ? 1 : -1;
+          gsap.from(el, {
+            x: from * 64,
+            opacity: 0,
+            duration: 1.1,
+            ease: "power3.out",
+            delay: index * 0.08,
+            clearProps: "opacity,transform",
+            scrollTrigger: {
+              trigger: el,
+              start: "top 88%",
+              toggleActions: "play none none none",
+            },
+          });
+        });
+
+        // Every framed image drifts, each against its own frame rather than the
+        // section, so two images in one section stay in step with their crops.
+        const media = root.querySelectorAll<HTMLElement>("[data-parallax]");
+        media.forEach((el) => {
           gsap.fromTo(
-            media,
+            el,
             { yPercent: -6 },
             {
               yPercent: 6,
               ease: "none",
               scrollTrigger: {
-                trigger: root,
+                trigger: el.closest("figure") ?? root,
                 start: "top bottom",
                 end: "bottom top",
                 scrub: true,
               },
             },
           );
-        }
+        });
       });
 
       return () => mm.revert();

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { LocationMap } from "@/components/location-map";
+import { MaskedHeading } from "@/components/masked-heading";
 import { SectionReveal } from "@/components/section-reveal";
 import type { LocationContent, LocationPlaceIcon } from "@/lib/site-content";
 
@@ -31,7 +32,7 @@ function Stars({ rating, className }: { rating: number; className?: string }) {
         <Star
           key={step}
           className={`size-3.5 ${
-            step <= Math.floor(rating) ? "fill-amber-400 text-amber-400" : "text-ink/20"
+            step <= Math.floor(rating) ? "fill-clay text-clay" : "text-ink/15"
           }`}
           strokeWidth={1.5}
         />
@@ -49,7 +50,7 @@ export function LocationSection({ location }: { location: LocationContent }) {
   return (
     <SectionReveal
       id={location.id}
-      className="relative overflow-hidden bg-sea-mist py-24 md:py-32"
+      className="relative overflow-hidden bg-sea-mist py-28 md:py-40"
     >
       {/* A white glow for depth, plus a trace of the garden green up top. */}
       <div
@@ -64,26 +65,27 @@ export function LocationSection({ location }: { location: LocationContent }) {
       {/* A slim sea-blue accent along the seam against the green above. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-transparent via-sea/40 to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-sea-light/70 to-transparent"
       />
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-8">
-        <div className="grid gap-8 md:grid-cols-12 md:items-end">
-          <div className="md:col-span-7">
+        <div className="grid gap-10 md:grid-cols-12 md:gap-8">
+          <div className="md:col-span-8">
             <div className="flex items-center gap-4">
               <span data-reveal-rule className="h-px w-10 bg-sea/70 md:w-14" />
               <span className="font-medium text-sea-deep text-xs tracking-[0.26em] uppercase md:text-sm">
                 {location.eyebrow}
               </span>
             </div>
-            <h2
-              data-reveal
-              className="mt-5 max-w-xl font-display text-4xl text-ink leading-[1.05] tracking-tight md:text-5xl lg:text-6xl"
-            >
-              {location.title}
-            </h2>
+            <MaskedHeading
+              text={location.title}
+              className="voice-display mt-6 max-w-2xl font-display text-display-lg text-ink tracking-[-0.02em]"
+            />
           </div>
-          <p data-reveal className="text-ink-muted text-lg leading-relaxed md:col-span-5">
+          <p
+            data-reveal
+            className="border-sea/40 border-l-2 pl-5 text-ink-muted text-lg leading-relaxed md:col-span-4 md:self-end"
+          >
             {location.body}
           </p>
         </div>
@@ -91,14 +93,14 @@ export function LocationSection({ location }: { location: LocationContent }) {
         {/* The map, with the address card floating over it. */}
         <div
           data-reveal
-          className="relative mt-14 overflow-hidden rounded-sm shadow-brand-deep/5 shadow-sm ring-1 ring-ink/10"
+          className="relative mt-16 overflow-hidden rounded-frame shadow-night/10 shadow-xl ring-1 ring-ink/10 md:mt-20"
         >
           <div className="h-105 md:h-130">
             <LocationMap lat={location.coords.lat} lng={location.coords.lng} />
           </div>
 
           <div className="pointer-events-none absolute inset-x-4 top-4 z-500 sm:inset-x-auto sm:left-4 sm:w-80 md:top-6 md:left-6">
-            <div className="pointer-events-auto rounded-sm bg-white/95 p-6 shadow-brand-deep/10 shadow-lg ring-1 ring-ink/10 backdrop-blur-sm md:p-7">
+            <div className="pointer-events-auto rounded-panel bg-white/95 p-6 shadow-night/15 shadow-xl ring-1 ring-ink/10 backdrop-blur-md md:p-7">
               <p className="flex items-center gap-2 font-medium text-brand-deep text-xs tracking-[0.22em] uppercase">
                 <MapPin className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
                 Finn oss
@@ -135,7 +137,7 @@ export function LocationSection({ location }: { location: LocationContent }) {
                   href={location.directionsUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="inline-flex items-center justify-center gap-2 rounded-sm bg-brand px-5 py-2.5 font-medium text-sm text-white transition-colors hover:bg-brand-deep"
+                  className="inline-flex items-center justify-center gap-2 rounded-chip bg-brand-deep px-5 py-2.5 font-medium text-sm text-white transition-colors hover:bg-brand-deeper"
                 >
                   <Navigation className="size-4" strokeWidth={1.75} aria-hidden />
                   Veibeskrivelse
@@ -144,7 +146,7 @@ export function LocationSection({ location }: { location: LocationContent }) {
                   href={location.mapUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="group inline-flex items-center justify-center gap-2 rounded-sm px-5 py-2.5 font-medium text-ink text-sm ring-1 ring-ink/15 transition-colors hover:bg-sand"
+                  className="group inline-flex items-center justify-center gap-2 rounded-chip px-5 py-2.5 font-medium text-ink text-sm ring-1 ring-ink/15 transition-colors hover:bg-sand"
                 >
                   Åpne i Google Maps
                   <ArrowUpRight
@@ -165,11 +167,15 @@ export function LocationSection({ location }: { location: LocationContent }) {
               {places.eyebrow}
             </span>
           </div>
-          <h3 data-reveal className="mt-4 font-display text-2xl text-ink tracking-tight md:text-3xl">
-            {places.title}
-          </h3>
+          <MaskedHeading
+            as="h3"
+            text={places.title}
+            className="voice-title mt-5 font-display text-display-md text-ink tracking-[-0.015em]"
+          />
 
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* auto-rows-fr keeps every card the same height regardless of how
+              long its description runs, so the grid reads as one block. */}
+          <ul className="mt-10 grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {places.items.map((place) => {
               const Icon = placeIcons[place.icon];
 
@@ -177,17 +183,17 @@ export function LocationSection({ location }: { location: LocationContent }) {
                 <li
                   key={place.name}
                   data-reveal
-                  className="group rounded-sm bg-white p-6 shadow-brand-deep/5 shadow-sm ring-1 ring-ink/5 transition-all duration-300 hover:shadow-brand-deep/10 hover:shadow-md hover:ring-sea/30 md:p-7"
+                  className="group flex flex-col rounded-panel bg-white p-6 shadow-night/5 shadow-sm ring-1 ring-ink/5 transition-[transform,box-shadow] duration-300 hover:-translate-y-1.5 hover:shadow-night/10 hover:shadow-xl hover:ring-sea/30 md:p-7"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <span className="inline-flex size-11 items-center justify-center rounded-lg bg-sea/15 text-sea-deep transition-colors duration-300 group-hover:bg-sea group-hover:text-white">
+                    <span className="inline-flex size-11 items-center justify-center rounded-card bg-sea/15 text-sea-deep transition-all duration-300 group-hover:scale-110 group-hover:bg-sea-deep group-hover:text-white">
                       <Icon className="size-5" strokeWidth={1.5} aria-hidden />
                     </span>
-                    <span className="rounded-full bg-sea-mist px-3 py-1 font-medium text-ink-muted text-xs">
+                    <span className="rounded-chip bg-sea-mist px-3 py-1 font-medium text-ink-muted text-xs tabular-nums">
                       {place.distance}
                     </span>
                   </div>
-                  <p className="mt-5 font-display text-ink text-xl">{place.name}</p>
+                  <p className="voice-title mt-6 font-display text-ink text-xl">{place.name}</p>
                   <p className="mt-2 text-ink-muted text-sm leading-relaxed">{place.description}</p>
                 </li>
               );
@@ -198,7 +204,7 @@ export function LocationSection({ location }: { location: LocationContent }) {
         {/* What visitors write on Google. */}
         <div
           data-reveal
-          className="mt-20 rounded-sm bg-white p-8 shadow-brand-deep/5 shadow-sm ring-1 ring-ink/5 md:mt-24 md:p-12"
+          className="mt-24 rounded-frame bg-white p-8 shadow-night/5 shadow-sm ring-1 ring-ink/5 md:mt-32 md:p-12"
         >
           <div className="grid gap-10 md:grid-cols-12 md:gap-12">
             <div className="md:col-span-4">
@@ -208,12 +214,14 @@ export function LocationSection({ location }: { location: LocationContent }) {
                   {reviews.eyebrow}
                 </span>
               </div>
-              <h3 className="mt-4 font-display text-2xl text-ink tracking-tight md:text-3xl">
+              <h3 className="voice-title mt-5 font-display text-display-md text-ink tracking-[-0.015em]">
                 {reviews.title}
               </h3>
 
-              <p className="mt-8 flex items-baseline gap-3">
-                <span className="font-display text-6xl text-ink leading-none">{rating}</span>
+              <p className="mt-10 flex items-baseline gap-3">
+                <span className="voice-title font-display text-7xl text-clay leading-none">
+                  {rating}
+                </span>
                 <span className="text-ink-muted text-sm">av 5</span>
               </p>
               <Stars rating={reviews.rating} className="mt-3" />
@@ -233,7 +241,7 @@ export function LocationSection({ location }: { location: LocationContent }) {
             <ul className="grid gap-4 md:col-span-8">
               {reviews.quotes.map((review) => (
                 <li key={review.name}>
-                  <figure className="rounded-sm bg-sea-mist/50 p-6 ring-1 ring-ink/5">
+                  <figure className="h-full rounded-panel bg-sea-mist/60 p-6 ring-1 ring-ink/5 transition-colors duration-300 hover:bg-sea-mist">
                     <Stars rating={review.rating} />
                     <blockquote className="mt-3 text-ink/90 text-sm leading-relaxed md:text-base">
                       &laquo;{review.quote}&raquo;

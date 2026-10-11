@@ -31,9 +31,12 @@ import {
   createBooking,
   getAvailability,
   getQuote,
+  setupDateFor,
+  setupFeeFor,
   type Availability,
   type Booking,
   type Quote,
+  type SetupOption,
   type Space,
 } from "@/lib/booking";
 import {
@@ -83,6 +86,13 @@ export function BookingPanel({
   const [selection, setSelection] = useState<Selection | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [setupOption, setSetupOption] = useState<SetupOption>("NONE");
+  /**
+   * The email the price has been worked out for, trailing what is typed by a
+   * beat. Members get a discount off the whole total, so the price box has to
+   * follow the email field — but not on every keystroke.
+   */
+  const [quotedEmail, setQuotedEmail] = useState("");
   const [details, setDetails] = useState<Details>(EMPTY);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
@@ -144,6 +154,19 @@ export function BookingPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [space.slug]);
 
+  // Settle on an address before asking for a price with it. Anything that is
+  // not yet a plausible email is treated as no email at all, so a half-typed
+  // one never reaches the server.
+  const typedEmail = details.email.trim();
+  useEffect(() => {
+    const looksLikeEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typedEmail);
+    const settled = looksLikeEmail ? typedEmail : "";
+    if (settled === quotedEmail) return;
+
+    const timer = setTimeout(() => setQuotedEmail(settled), 500);
+    return () => clearTimeout(timer);
+  }, [typedEmail, quotedEmail]);
+
   // Re-price whenever a complete range is chosen.
   useEffect(() => {
     if (!selection?.end) {
@@ -155,7 +178,7 @@ export function BookingPanel({
     let cancelled = false;
     const { start, end } = selection;
 
-    getQuote(space.slug, start, end)
+    getQuote(space.slug, start, end, setupOption, quotedEmail || undefined)
       .then((next) => {
         if (!cancelled) {
           setQuote(next);
@@ -173,7 +196,25 @@ export function BookingPanel({
     return () => {
       cancelled = true;
     };
-  }, [selection, space.slug]);
+  }, [selection, space.slug, setupOption, quotedEmail]);
+
+  // The day before has to be free for rigging to be on offer at all. It is
+  // read off the availability already loaded, so choosing costs no request.
+  const setupDate = selection ? setupDateFor("FULL_DAY", selection.start) : null;
+  const setupBlockedReason = !setupDate
+    ? null
+    : unavailableDates.has(setupDate)
+      ? "Dagen før er allerede opptatt, så rigging kan ikke bestilles for denne datoen."
+      : availability && setupDate < availability.minDate
+        ? `Rigging må bestilles i god tid. Velg en startdato fra ${formatRange(addDays(availability.minDate, 1), addDays(availability.minDate, 1))} og utover.`
+        : null;
+  const setupBlocked = setupBlockedReason !== null;
+
+  // Drop a choice that has stopped being possible, so the guest is never
+  // charged for a day the API is about to refuse.
+  useEffect(() => {
+    if (setupBlocked && setupOption !== "NONE") setSetupOption("NONE");
+  }, [setupBlocked, setupOption]);
 
   // Online booking can be shut off in the dashboard; the calendar then only
   // shows which days are free while the board enters bookings by hand.
@@ -210,6 +251,7 @@ export function BookingPanel({
         startDate: selection.start,
         endDate: selection.end,
         guests: Number(details.guests),
+        setupOption,
         firstName: details.firstName,
         lastName: details.lastName,
         email: details.email,
@@ -289,6 +331,7 @@ export function BookingPanel({
                 monthsAhead={MONTHS_AHEAD}
                 maxDays={space.maxBookingDays}
                 readOnly={!bookingOpen}
+                setupDate={setupOption === "NONE" ? null : setupDate}
               />
             )}
           </div>
@@ -314,6 +357,14 @@ export function BookingPanel({
                   Din booking
                 </p>
               </div>
+
+              <SetupChoice
+                space={space}
+                value={setupOption}
+                onChange={setSetupOption}
+                setupDate={setupDate}
+                blockedReason={setupBlockedReason}
+              />
 
               <Summary
                 selection={selection}
@@ -421,7 +472,7 @@ export function BookingPanel({
                     <button
                       type="button"
                       onClick={() => setTermsOpen(true)}
-                      className="font-medium text-brand-deep underline underline-offset-2 transition-colors hover:text-brand"
+                      className="font-medium text-brand-deep underline underline-offset-2 transition-colors hover:text-brand-deeper"
                     >
                       leievilkårene for {space.name}
                     </button>
@@ -443,7 +494,7 @@ export function BookingPanel({
                       <button
                         type="button"
                         onClick={() => setTermsOpen(true)}
-                        className="font-medium text-brand-deep underline underline-offset-2 transition-colors hover:text-brand"
+                        className="font-medium text-brand-deep underline underline-offset-2 transition-colors hover:text-brand-deeper"
                       >
                         signere i leievilkårene
                       </button>{" "}
@@ -468,7 +519,7 @@ export function BookingPanel({
                   !acceptedTerms ||
                   !signature
                 }
-                className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-brand px-6 py-3.5 font-medium text-sm text-white transition-colors hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink/20"
+                className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-brand-deep px-6 py-3.5 font-medium text-sm text-white transition-colors hover:bg-brand-deeper disabled:cursor-not-allowed disabled:bg-ink/20"
               >
                 {submitting ? (
                   <LoaderCircle className="size-4 animate-spin" aria-hidden />
@@ -554,7 +605,7 @@ function BookingClosed({
         <button
           type="button"
           onClick={() => setContactOpen(true)}
-          className="mt-5 rounded-full bg-brand px-5 py-2 font-medium text-sm text-white shadow-brand-deep/25 shadow-sm transition-all duration-300 hover:bg-brand-deep hover:shadow-brand-deep/30 hover:shadow-md"
+          className="mt-5 rounded-full bg-brand-deep px-5 py-2 font-medium text-sm text-white shadow-brand-deep/25 shadow-sm transition-all duration-300 hover:bg-brand-deeper hover:shadow-brand-deep/30 hover:shadow-md"
         >
           Kontakt
         </button>
@@ -628,8 +679,25 @@ function Summary({
             />
           ))}
 
+          {quote.setup ? (
+            <PriceRow
+              label={`${quote.setup.label} · ${quote.setup.date.slice(8)}.${quote.setup.date.slice(5, 7)}`}
+              amount={quote.setup.amount}
+              muted
+            />
+          ) : null}
+
           {quote.cleaningFee > 0 ? (
             <PriceRow label="Utvask" amount={quote.cleaningFee} muted />
+          ) : null}
+
+          {quote.discount ? (
+            <div className="flex items-baseline justify-between gap-4 border-ink/10 border-t pt-2.5 text-brand-deep">
+              <span className="font-medium text-sm">{quote.discount.label}</span>
+              <span className="font-medium text-sm tabular-nums">
+                −{formatPrice(quote.discount.amount)}
+              </span>
+            </div>
           ) : null}
 
           <div className="mt-4 flex items-baseline justify-between gap-4 border-ink/10 border-t pt-4">
@@ -648,6 +716,92 @@ function Summary({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The optional setup day: the day before the rental, held at a flat fee so the
+ * guest can carry in and decorate. Both halves hold the whole day — only the
+ * price differs — so the hall is never promised to two parties at once.
+ */
+function SetupChoice({
+  space,
+  value,
+  onChange,
+  setupDate,
+  blockedReason,
+}: {
+  space: Space;
+  value: SetupOption;
+  onChange: (next: SetupOption) => void;
+  setupDate: string | null;
+  /** Why rigging cannot be had for these dates, or null when it can. */
+  blockedReason: string | null;
+}) {
+  const blocked = blockedReason !== null;
+  const options: { option: SetupOption; label: string; hint: string }[] = [
+    { option: "NONE", label: "Nei takk", hint: "Kun leiedagene" },
+    {
+      option: "HALF_DAY",
+      label: "Halv dag",
+      hint: formatPrice(setupFeeFor(space, "HALF_DAY")),
+    },
+    {
+      option: "FULL_DAY",
+      label: "Full dag",
+      hint: formatPrice(setupFeeFor(space, "FULL_DAY")),
+    },
+  ];
+
+  return (
+    <fieldset className="mt-8 border-ink/10 border-t pt-6">
+      <legend className="sr-only">Rigging dagen før</legend>
+
+      <p className="font-medium text-ink text-xs tracking-[0.22em] uppercase">
+        Rigging dagen før
+      </p>
+      <p className="mt-2 text-ink-muted text-sm leading-relaxed">
+        {blockedReason ??
+          "Trenger du tilgang dagen før for å rigge, pynte og bære inn? Da holder vi av hele dagen for deg."}
+      </p>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        {options.map((choice) => {
+          const selected = value === choice.option;
+          const disabled = blocked && choice.option !== "NONE";
+
+          return (
+            <button
+              key={choice.option}
+              type="button"
+              disabled={disabled}
+              aria-pressed={selected}
+              onClick={() => onChange(choice.option)}
+              className={`rounded-card px-4 py-3 text-left ring-1 transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
+                selected
+                  ? "bg-brand-deep text-white ring-brand-deep"
+                  : "bg-white text-ink ring-ink/10 hover:ring-brand/40"
+              }`}
+            >
+              <span className="block font-medium text-sm">{choice.label}</span>
+              <span
+                className={`mt-0.5 block text-xs ${
+                  selected ? "text-white/75" : "text-ink-muted"
+                }`}
+              >
+                {choice.hint}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {value !== "NONE" && setupDate ? (
+        <p className="mt-3 text-ink-muted text-xs">
+          Vi holder av {formatRange(setupDate, setupDate)} til rigging.
+        </p>
+      ) : null}
+    </fieldset>
   );
 }
 

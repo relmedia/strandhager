@@ -74,8 +74,8 @@ export function SiteHeader({ logo, name, nav, contact }: SiteHeaderProps) {
       <div
         className={`mx-auto max-w-6xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           condensed
-            ? "mt-3 rounded-2xl border border-ink/8 bg-white/85 shadow-[0_16px_40px_-20px_rgba(20,30,20,0.25)] backdrop-blur-xl md:mt-4"
-            : "mt-0 rounded-2xl border border-transparent bg-transparent"
+            ? "mt-3 rounded-panel border border-ink/8 bg-white/80 shadow-[0_18px_50px_-24px_color-mix(in_oklab,var(--night)_55%,transparent)] backdrop-blur-xl md:mt-4"
+            : "mt-0 rounded-panel border border-transparent bg-transparent"
         }`}
       >
         <div
@@ -99,8 +99,8 @@ export function SiteHeader({ logo, name, nav, contact }: SiteHeaderProps) {
               priority
             />
             <span className="hidden font-medium text-lg tracking-wide sm:inline md:text-xl">
-              <span className={condensed ? "text-brand" : "text-[#8fd46f]"}>Ølberg</span>
-              <span className={condensed ? "text-sea" : "text-[#7ec8e8]"}>strandhager</span>
+              <span className={condensed ? "text-brand" : "text-brand-light"}>Ølberg</span>
+              <span className={condensed ? "text-sea" : "text-sea-light"}>strandhager</span>
             </span>
           </Link>
 
@@ -119,7 +119,7 @@ export function SiteHeader({ logo, name, nav, contact }: SiteHeaderProps) {
             <button
               type="button"
               onClick={() => setContactOpen(true)}
-              className="ml-3 rounded-full bg-brand px-5 py-2 font-medium text-sm text-white shadow-brand-deep/25 shadow-sm transition-all duration-300 hover:bg-brand-deep hover:shadow-brand-deep/30 hover:shadow-md"
+              className="ml-3 rounded-chip bg-brand-deep px-5 py-2 font-medium text-sm text-white shadow-brand-deep/25 shadow-sm transition-all duration-300 hover:bg-brand-deeper hover:shadow-brand-deep/30 hover:shadow-md"
             >
               Kontakt
             </button>
@@ -159,7 +159,7 @@ export function SiteHeader({ logo, name, nav, contact }: SiteHeaderProps) {
               ))}
               <button
                 type="button"
-                className="mt-2 inline-flex w-fit rounded-full bg-brand px-5 py-2 font-medium text-sm text-white"
+                className="mt-2 inline-flex w-fit rounded-chip bg-brand-deep px-5 py-2 font-medium text-sm text-white"
                 onClick={() => {
                   setOpen(false);
                   setContactOpen(true);

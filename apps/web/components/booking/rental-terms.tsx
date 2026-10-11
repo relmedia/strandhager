@@ -252,7 +252,7 @@ export function RentalTermsDialog({
         <button
           type="button"
           onClick={onClose}
-          className="mt-8 rounded-sm bg-brand px-5 py-2.5 font-medium text-sm text-white transition-colors hover:bg-brand-deep"
+          className="mt-8 rounded-sm bg-brand-deep px-5 py-2.5 font-medium text-sm text-white transition-colors hover:bg-brand-deeper"
         >
           Ferdig
         </button>

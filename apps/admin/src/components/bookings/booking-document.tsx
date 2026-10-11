@@ -76,10 +76,27 @@ export function BookingDocument({ booking }: { booking: Booking }) {
               <dt>Leie, {booking.days} {booking.days === 1 ? "dag" : "dager"}</dt>
               <dd className="tabular-nums">{formatMoney(booking.dayTotal)}</dd>
             </div>
+            {booking.setupOption !== "NONE" ? (
+              <div className="flex items-baseline justify-between text-neutral-600">
+                <dt>
+                  {booking.setupOption === "FULL_DAY"
+                    ? "Rigging, full dag"
+                    : "Rigging, halv dag"}
+                  {booking.setupDate ? ` (${booking.setupDate})` : ""}
+                </dt>
+                <dd className="tabular-nums">{formatMoney(booking.setupFee)}</dd>
+              </div>
+            ) : null}
             {booking.cleaningFee > 0 ? (
               <div className="flex items-baseline justify-between text-neutral-600">
                 <dt>Utvask</dt>
                 <dd className="tabular-nums">{formatMoney(booking.cleaningFee)}</dd>
+              </div>
+            ) : null}
+            {booking.discountAmount > 0 ? (
+              <div className="flex items-baseline justify-between text-neutral-600">
+                <dt>Parsellantrabatt {booking.discountPercent} %</dt>
+                <dd className="tabular-nums">−{formatMoney(booking.discountAmount)}</dd>
               </div>
             ) : null}
             <div className="flex items-baseline justify-between border-neutral-200 border-t pt-2 font-medium">

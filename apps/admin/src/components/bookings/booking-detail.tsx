@@ -202,8 +202,26 @@ export function BookingDetail({ id, adminName }: { id: string; adminName: string
 
             <dl className="space-y-2 text-sm">
               <Line label={`Leie, ${data.days} dager`} amount={data.dayTotal} />
+              {data.setupOption !== "NONE" ? (
+                <Line
+                  label={`${
+                    data.setupOption === "FULL_DAY"
+                      ? "Rigging, full dag"
+                      : "Rigging, halv dag"
+                  }${data.setupDate ? ` (${data.setupDate})` : ""}`}
+                  amount={data.setupFee}
+                />
+              ) : null}
               {data.cleaningFee > 0 ? (
                 <Line label="Utvask" amount={data.cleaningFee} />
+              ) : null}
+              {data.discountAmount > 0 ? (
+                <div className="flex items-baseline justify-between text-emerald-700">
+                  <dt>Parsellantrabatt {data.discountPercent} %</dt>
+                  <dd className="tabular-nums">
+                    −{formatMoney(data.discountAmount)}
+                  </dd>
+                </div>
               ) : null}
               <div className="flex items-baseline justify-between border-t pt-2 font-medium">
                 <dt>Totalt</dt>

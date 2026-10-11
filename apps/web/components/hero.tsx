@@ -58,10 +58,13 @@ export function Hero({ hero }: { hero: HeroContent }) {
         gsap.set(".hero-char", { clearProps: "all" });
         gsap.set(
           [".hero-kicker-rule", ".hero-kicker", ".hero-support", ".hero-cta a", ".hero-meta"],
-          { opacity: 1, y: 0, scaleX: 1 },
+          // autoAlpha, not opacity: these are revealed with autoAlpha, which
+          // also writes visibility:hidden, and opacity alone cannot undo that.
+          { autoAlpha: 1, y: 0, x: 0, scaleX: 1 },
         );
         gsap.set(".hero-slide", { autoAlpha: 0 });
         gsap.set(".hero-slide:first-child", { autoAlpha: 1 });
+        gsap.set(".hero-cue", { autoAlpha: 0 });
       });
 
       mm.add("(prefers-reduced-motion: no-preference)", () => {
@@ -74,7 +77,28 @@ export function Hero({ hero }: { hero: HeroContent }) {
 
         // Intro: slow settle on the imagery, then a per-character rise of the
         // headline with a hint of 3D, followed by the supporting layers.
-        const intro = gsap.timeline({ defaults: { ease: "expo.out" } });
+        const intro = gsap.timeline({
+          defaults: { ease: "expo.out" },
+          // Every .from() below starts its target at autoAlpha 0, which writes
+          // visibility:hidden inline. If the timeline is ever cut short - a hot
+          // reload, a React remount, a context revert mid-flight - that inline
+          // style outlives it and the element stays invisible until a full
+          // reload. Clearing on completion means the resting state is always
+          // the plain CSS one, with nothing left over to strand.
+          onComplete: () => {
+            gsap.set(
+              [
+                ".hero-kicker-rule",
+                ".hero-kicker",
+                ".hero-char",
+                ".hero-support",
+                ".hero-cta a",
+                ".hero-meta",
+              ],
+              { clearProps: "opacity,visibility,transform" },
+            );
+          },
+        });
 
         intro
           .from(slides[0], { scale: 1.18, duration: 2.8, ease: "power2.out" }, 0)
@@ -131,6 +155,27 @@ export function Hero({ hero }: { hero: HeroContent }) {
             yoyo: true,
           },
         );
+
+        // The cue's highlight falls down the hairline, pauses, repeats.
+        gsap.fromTo(
+          ".hero-cue-dot",
+          { yPercent: -100 },
+          {
+            yPercent: 340,
+            duration: 2.2,
+            ease: "power2.inOut",
+            repeat: -1,
+            repeatDelay: 0.7,
+            delay: 2.4,
+          },
+        );
+
+        // The cue is only an invitation while there is still a page below it.
+        gsap.to(".hero-cue", {
+          autoAlpha: 0,
+          ease: "none",
+          scrollTrigger: { trigger: root, start: "top top", end: "+=240", scrub: true },
+        });
 
         // A faint sea-toned glow that wanders across the imagery.
         gsap.to(".hero-glow", {
@@ -214,26 +259,38 @@ export function Hero({ hero }: { hero: HeroContent }) {
             />
           </div>
         ))}
-        <div className="absolute inset-0 bg-linear-to-t from-ink/90 via-ink/40 to-ink/15" />
-        <div className="absolute inset-0 bg-linear-to-r from-ink/55 via-transparent to-sea/20" />
+        {/* Three layers rather than two: a deep dusk floor for the copy to sit
+            on, a side wash that carries the sea blue in from the right, and a
+            top veil so the fixed header always has something to read against. */}
+        <div className="absolute inset-0 bg-linear-to-t from-night via-night/55 to-night/10" />
+        <div className="absolute inset-0 bg-linear-to-r from-night/70 via-transparent to-sea-deep/25" />
+        <div className="absolute inset-x-0 top-0 h-40 bg-linear-to-b from-night/60 to-transparent" />
         <div
           aria-hidden
-          className="hero-glow absolute inset-[-15%] bg-[radial-gradient(38%_45%_at_68%_30%,rgba(143,208,239,0.28),transparent_70%)]"
+          className="hero-glow absolute inset-[-15%] bg-[radial-gradient(38%_45%_at_68%_30%,color-mix(in_oklab,var(--brand-blue-light)_28%,transparent),transparent_70%)]"
         />
+      </div>
+
+      {/* Wordless scroll cue - a hairline with a travelling highlight. */}
+      <div
+        aria-hidden
+        className="hero-cue pointer-events-none absolute right-6 bottom-0 hidden h-20 w-px overflow-hidden bg-white/15 md:block lg:right-10"
+      >
+        <span className="hero-cue-dot block h-6 w-px bg-brand-light" />
       </div>
 
       <div className="mx-auto flex min-h-dvh max-w-6xl flex-col justify-end px-5 pb-14 pt-28 md:px-8 md:pb-16">
         <div className="hero-content max-w-4xl">
           <div className="flex items-center gap-4">
-            <span className="hero-kicker-rule h-px w-10 origin-left bg-[#9ed97f]/80 md:w-14" />
-            <span className="hero-kicker font-medium text-[#9ed97f] text-xs tracking-[0.26em] uppercase md:text-sm">
+            <span className="hero-kicker-rule h-px w-10 origin-left bg-brand-light/80 md:w-14" />
+            <span className="hero-kicker font-medium text-brand-light text-xs tracking-[0.26em] uppercase md:text-sm">
               {hero.eyebrow}
             </span>
           </div>
 
           <h1
             aria-label={hero.headline.join(" ")}
-            className="mt-6 font-display text-5xl text-white leading-[0.95] tracking-tight md:mt-8 md:text-7xl lg:text-8xl"
+            className="voice-hero mt-6 font-display text-display-xl text-white tracking-[-0.025em] md:mt-8"
           >
             <span aria-hidden>
               {hero.headline.map((line) => (
@@ -242,14 +299,14 @@ export function Hero({ hero }: { hero: HeroContent }) {
             </span>
           </h1>
 
-          <p className="hero-support mt-6 max-w-lg text-base text-white/75 leading-relaxed md:mt-8 md:text-lg">
+          <p className="hero-support mt-7 max-w-xl text-lg text-white/80 leading-relaxed md:mt-9 md:text-xl">
             {hero.support}
           </p>
 
-          <div className="hero-cta mt-8 flex flex-wrap gap-3">
+          <div className="hero-cta mt-9 flex flex-wrap gap-3 md:mt-10">
             <a
               href={hero.primaryCta.href}
-              className="group inline-flex items-center gap-2 rounded-sm bg-brand px-5 py-3 font-medium text-sm text-white transition-colors hover:bg-brand-deep md:text-base"
+              className="group inline-flex items-center gap-2.5 rounded-chip bg-brand-light px-7 py-3.5 font-medium text-base text-night shadow-night/30 shadow-lg transition-[background-color,box-shadow] duration-300 hover:bg-white hover:shadow-night/40 hover:shadow-xl"
             >
               {hero.primaryCta.label}
               <ArrowRight
@@ -259,20 +316,23 @@ export function Hero({ hero }: { hero: HeroContent }) {
             </a>
             <a
               href={hero.secondaryCta.href}
-              className="rounded-sm border border-white/40 bg-white/5 px-5 py-3 font-medium text-sm text-white backdrop-blur-sm transition-colors hover:border-white/70 hover:bg-white/15 md:text-base"
+              className="rounded-chip border border-white/35 px-7 py-3.5 font-medium text-base text-white backdrop-blur-md transition-colors duration-300 hover:border-white/70 hover:bg-white/10"
             >
               {hero.secondaryCta.label}
             </a>
           </div>
 
           <div className="hero-meta mt-12 flex items-center justify-between gap-6 border-white/15 border-t pt-5">
-            <p className="text-white/60 text-xs tracking-[0.18em] uppercase md:text-sm">
+            <p className="text-white/65 text-xs tracking-[0.22em] uppercase md:text-sm">
               {hero.meta}
             </p>
             <div className="flex items-center gap-2" aria-hidden>
               {hero.slides.map((slide) => (
-                <span key={slide.src} className="h-px w-8 bg-white/25 md:w-12">
-                  <span className="hero-bar-fill block h-px w-full bg-white/90" />
+                <span
+                  key={slide.src}
+                  className="h-0.5 w-8 overflow-hidden rounded-chip bg-white/20 md:w-14"
+                >
+                  <span className="hero-bar-fill block h-full w-full origin-left rounded-chip bg-brand-light" />
                 </span>
               ))}
             </div>

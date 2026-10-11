@@ -30,7 +30,7 @@ const tones = {
   light: {
     rule: "bg-brand/60",
     eyebrow: "text-brand-deep",
-    link: "text-brand-deep hover:text-brand",
+    link: "text-brand-deep hover:text-brand-deeper",
     hint: "text-ink-muted/70",
     caption: "text-ink-muted",
     frame: "ring-ink/10",
@@ -38,14 +38,14 @@ const tones = {
     fill: "bg-brand",
   },
   dark: {
-    rule: "bg-sea/70",
-    eyebrow: "text-sea-mist",
-    link: "text-white hover:text-sea-mist",
+    rule: "bg-brand-light/70",
+    eyebrow: "text-brand-light",
+    link: "text-white hover:text-brand-light",
     hint: "text-white/45",
     caption: "text-white/65",
     frame: "ring-white/15",
     track: "bg-white/15",
-    fill: "bg-sea-mist",
+    fill: "bg-brand-light",
   },
 } as const;
 
@@ -113,7 +113,10 @@ export function GalleryStrip({
               {eyebrow}
             </span>
           </div>
-          <h3 data-reveal className="mt-4 font-display text-2xl tracking-tight md:text-3xl">
+          <h3
+            data-reveal
+            className="voice-title mt-5 font-display text-display-md tracking-[-0.015em]"
+          >
             {title}
           </h3>
         </div>
@@ -145,7 +148,7 @@ export function GalleryStrip({
             <li key={item.src} className="w-[78vw] shrink-0 snap-start sm:w-[46vw] lg:w-100">
               <figure>
                 <div
-                  className={`relative aspect-3/2 overflow-hidden rounded-sm ring-1 ${palette.frame}`}
+                  className={`relative aspect-3/2 overflow-hidden rounded-panel ring-1 ${palette.frame}`}
                 >
                   <Image
                     src={item.src}
@@ -162,10 +165,12 @@ export function GalleryStrip({
         </ul>
       </div>
 
-      <div className={`mt-6 hidden h-px w-full md:block ${palette.track}`}>
+      <div
+        className={`mt-8 hidden h-0.5 w-full overflow-hidden rounded-chip md:block ${palette.track}`}
+      >
         <span
           ref={progressRef}
-          className={`block h-px w-full origin-left scale-x-0 ${palette.fill}`}
+          className={`block h-full w-full origin-left scale-x-0 rounded-chip ${palette.fill}`}
         />
       </div>
     </div>

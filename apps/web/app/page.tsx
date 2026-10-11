@@ -2,6 +2,7 @@ import { Hero } from "@/components/hero";
 import { LocationSection } from "@/components/location-section";
 import { ParselleneSection } from "@/components/parsellene-section";
 import { RentalSection } from "@/components/rental-section";
+import { ScrollProgress } from "@/components/scroll-progress";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getSpaceOrNull } from "@/lib/booking";
@@ -15,6 +16,7 @@ export default async function Home() {
 
   return (
     <>
+      <ScrollProgress />
       <SiteHeader
         logo={site.logo}
         name={site.name}

@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 import {
   Equals,
   IsEmail,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -10,6 +11,8 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { SETUP_OPTIONS } from '../../pricing/dto/quote-price.dto';
+import type { SetupOption } from '../../pricing/quote';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MESSAGE = 'må være en dato på formen ÅÅÅÅ-MM-DD';
@@ -35,6 +38,14 @@ export class CreateBookingDto {
   @IsInt({ message: 'Antall gjester må være et tall' })
   @Min(1, { message: 'Det må være minst én gjest' })
   guests!: number;
+
+  /**
+   * Whether to also hold the day before the rental for setting up. Priced as a
+   * flat fee from the space, not as an extra day of hire.
+   */
+  @IsOptional()
+  @IsIn(SETUP_OPTIONS, { message: 'Ugyldig valg for rigging' })
+  setupOption?: SetupOption;
 
   @trim()
   @IsString()

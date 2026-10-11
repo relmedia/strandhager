@@ -54,6 +54,22 @@ export class UpdateSpaceDto {
   cleaningFee?: number;
 
   @IsOptional()
+  @IsInt({ message: 'Riggepris for full dag må være et tall' })
+  @Min(0, { message: 'Riggepris for full dag kan ikke være negativ' })
+  setupFullDayFee?: number;
+
+  @IsOptional()
+  @IsInt({ message: 'Riggepris for halv dag må være et tall' })
+  @Min(0, { message: 'Riggepris for halv dag kan ikke være negativ' })
+  setupHalfDayFee?: number;
+
+  @IsOptional()
+  @IsInt({ message: 'Parsellantrabatt må være et helt tall' })
+  @Min(0, { message: 'Parsellantrabatt kan ikke være negativ' })
+  @Max(100, { message: 'Parsellantrabatt kan ikke være over 100 %' })
+  parcelOwnerDiscountPercent?: number;
+
+  @IsOptional()
   @IsString()
   @MaxLength(300)
   priceNote?: string;

@@ -8,12 +8,34 @@
   /* Logo greens + sky blue */
   --brand-green: #3f9a28;
   --brand-green-deep: #2d701c;
+  /* One step below -deep, for the hover/active state of filled buttons. */
+  --brand-green-deeper: #225615;
   --brand-green-soft: #e6f4df;
   --brand-blue: #2f9fd0;
-  --brand-blue-deep: #1f7aa3;
+  /* Lightness trimmed so the eyebrows clear AA on the sea-mist band (4.28 -> 5.07). */
+  --brand-blue-deep: #1c6e92;
+  /* Light siblings, hue-locked to the base greens/blue. These are the only
+     brand colours that clear contrast on the dark imagery (hero, header over
+     the photo); the base tones are too dark to read there. */
+  --brand-green-light: #86da71;
+  --brand-blue-light: #82c5e3;
+
+  /* Dusk surfaces. A spruce-teal at hue 158 deg, sitting between the garden
+     green (108 deg) and the sea blue (198 deg), so the dark bands read as
+     belonging to both halves of "der hagen moter havet". */
+  --night: #13261f;
+  --night-soft: #1d352a;
+
+  /* The one warm note against all the cool tones - sun on sand. Used
+     sparingly: ratings, numerals, small accents. */
+  --clay: #996529;
+  --clay-light: #e2ac5a;
+
   --ink: #1c2a1a;
   --ink-muted: #4a5a45;
   --sand: #f3f7f0;
+  /* A warmer neutral than sand, to alternate bands without a hue clash. */
+  --paper: #f8f6f2;
   --sea-mist: #e8f4f8;
   --background: var(--sand);
   --foreground: var(--ink);
@@ -25,9 +47,12 @@
   --color-foreground: var(--foreground);
   --color-brand: var(--brand-green);
   --color-brand-deep: var(--brand-green-deep);
+  --color-brand-deeper: var(--brand-green-deeper);
+  --color-brand-light: var(--brand-green-light);
   --color-brand-soft: var(--brand-green-soft);
   --color-sea: var(--brand-blue);
   --color-sea-deep: var(--brand-blue-deep);
+  --color-sea-light: var(--brand-blue-light);
   --color-sea-mist: var(--sea-mist);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
@@ -45,6 +70,52 @@
   --color-border: color-mix(in oklab, var(--ink) 10%, transparent);
   --color-ring: var(--brand-green);
   --color-destructive: #b91c1c;
+
+  --color-night: var(--night);
+  --color-night-soft: var(--night-soft);
+  --color-clay: var(--clay);
+  --color-clay-light: var(--clay-light);
+  --color-paper: var(--paper);
+
+  /* Fluid display scale. One clamp per step replaces the md:/lg: ladders, so
+     headlines scale with the viewport instead of jumping at two breakpoints. */
+  --text-display-xl: clamp(2.75rem, 10.5vw, 8.5rem);
+  --text-display-xl--line-height: 0.92;
+  --text-display-lg: clamp(2.125rem, 5.6vw, 4.5rem);
+  --text-display-lg--line-height: 1.02;
+  --text-display-md: clamp(1.625rem, 3.1vw, 2.5rem);
+  --text-display-md--line-height: 1.1;
+  --text-display-sm: clamp(1.25rem, 2vw, 1.625rem);
+  --text-display-sm--line-height: 1.2;
+
+  /* Semantic radii. The old markup put 4px on full-width panels and 16px on
+     the cards inside them; these name the intent instead. */
+  --radius-chip: 999px;
+  --radius-card: 0.875rem;
+  --radius-panel: 1.25rem;
+  --radius-frame: 1.5rem;
+}
+
+/* Fraunces' character axes. SOFT rounds the terminals and WONK swaps in the
+   quirky alternates (the single-storey g, the splayed w) - neither is applied
+   automatically, and neither exists in the font at all unless layout.tsx asks
+   next/font for those axes.
+
+   opsz is deliberately absent: font-optical-sizing is auto by default, so the
+   browser already tracks it to the rendered size, which is exactly right for
+   the fluid clamp scale. Pinning it here would freeze the display cut's
+   hairlines onto the 44px mobile headline too. Listing only these two axes
+   leaves opsz on auto and leaves letter-spacing to Tailwind's tracking-*. */
+@utility voice-hero {
+  font-variation-settings: "SOFT" 26, "WONK" 1;
+}
+
+@utility voice-display {
+  font-variation-settings: "SOFT" 18, "WONK" 1;
+}
+
+@utility voice-title {
+  font-variation-settings: "SOFT" 12, "WONK" 0;
 }
 
 /* Tailwind v4 leaves buttons with the default arrow cursor; restore the
@@ -75,4 +146,46 @@ body {
 ::selection {
   background: color-mix(in oklab, var(--brand-green) 35%, white);
   color: var(--ink);
+}
+
+/* Display type wants optical alignment and real ligatures; body text wants
+   tabular-safe defaults. */
+@layer base {
+  :where(h1, h2, h3) {
+    text-wrap: balance;
+    font-feature-settings: "liga" 1, "dlig" 1;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+/* Used by the masked heading reveal: each word sits in its own clipping box so
+   the line rises out of nothing rather than fading in place. */
+.word-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  /* Display line-heights here are tighter than 1, so the glyph box is taller
+     than the line box. Pad the clipping box out to contain ascenders and
+     descenders, then pull the same amount back off so layout is unchanged. */
+  padding-top: 0.16em;
+  padding-bottom: 0.2em;
+  margin-top: -0.16em;
+  margin-bottom: -0.2em;
+}
+
+.word-mask > span {
+  /* Block, not inline-block: an inline-block here would be baseline-aligned
+     inside the mask's own line box and sit ~0.25em low, pushing descenders
+     past the clip edge. As a block it fills the mask's content box exactly. */
+  display: block;
+  will-change: transform;
+}
+
+/* Image frames reveal by unmasking rather than fading, which keeps the photo
+   at full opacity the whole time and reads far crisper. */
+[data-reveal-clip] {
+  clip-path: inset(0 0 0 0);
 }

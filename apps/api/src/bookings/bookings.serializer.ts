@@ -28,6 +28,15 @@ export function toAdminView(booking: BookingRecord) {
     notes: booking.notes,
     dayTotal: booking.dayTotal,
     cleaningFee: booking.cleaningFee,
+    setupOption: booking.setupOption,
+    setupFee: booking.setupFee,
+    /** The day held for setting up, or null when none was bought. */
+    setupDate:
+      booking.setupOption === 'NONE' || !booking.blockedFrom
+        ? null
+        : toIsoDate(booking.blockedFrom),
+    discountPercent: booking.discountPercent,
+    discountAmount: booking.discountAmount,
     total: booking.total,
     cancelledAt: booking.cancelledAt?.toISOString() ?? null,
     cancelledBy: booking.cancelledBy,

@@ -25,6 +25,14 @@ export type Booking = {
   notes: string | null;
   dayTotal: number;
   cleaningFee: number;
+  /** Whether the guest also bought the day before, for rigging. */
+  setupOption: SetupOption;
+  setupFee: number;
+  /** The day held for rigging, or null when none was bought. */
+  setupDate: string | null;
+  /** The parsellant discount as it stood when the booking was made. */
+  discountPercent: number;
+  discountAmount: number;
   total: number;
   cancelledAt: string | null;
   cancelledBy: "GUEST" | "ADMIN" | null;
@@ -63,12 +71,19 @@ export type Rate = {
   amount: number;
 };
 
+/** Whether a booking also holds the day before, for rigging. */
+export type SetupOption = "NONE" | "HALF_DAY" | "FULL_DAY";
+
 export type Space = {
   slug: string;
   name: string;
   description: string | null;
   maxGuests: number;
   cleaningFee: number;
+  setupFullDayFee: number;
+  setupHalfDayFee: number;
+  /** Percentage off the whole total for a current plot owner. 0 switches it off. */
+  parcelOwnerDiscountPercent: number;
   priceNote: string | null;
   noticeDays: number;
   /** The longest stretch of days a single booking may cover. */

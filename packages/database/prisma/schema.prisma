@@ -42,6 +42,13 @@ model Space {
   maxGuests   Int
   /// Added once per booking on top of the day rates.
   cleaningFee Int     @default(0)
+  /// Flat fee for holding the whole day before the rental, for setting up.
+  setupFullDayFee Int @default(1000)
+  /// Flat fee for half of the day before. Holds the same day, costs less.
+  setupHalfDayFee Int @default(500)
+  /// Percentage off the whole total for someone who currently owns a plot.
+  /// Zero switches the member discount off entirely.
+  parcelOwnerDiscountPercent Int @default(0)
   /// Small print under the price cards, e.g. "Alle priser er oppgitt inkl. mva."
   priceNote   String?
   /// Days a booking must start at least this far ahead.
@@ -148,7 +155,20 @@ model Booking {
   /// Price snapshot, so later rate changes never rewrite history.
   dayTotal    Int
   cleaningFee Int
+  /// What the guest paid for the setup day, 0 when they did not buy one.
+  setupFee    Int @default(0)
+  /// The parsellant discount as it stood when the booking was made, so a later
+  /// change to the percentage never rewrites what someone was charged.
+  discountPercent Int @default(0)
+  discountAmount  Int @default(0)
   total       Int
+
+  /// Whether the guest bought the day before for setting up, and which half.
+  setupOption SetupOption @default(NONE)
+  /// First day this booking holds: the setup day when one was bought,
+  /// otherwise startDate. Stored so overlap stays one indexed range query
+  /// rather than arithmetic the database cannot index.
+  blockedFrom DateTime? @db.Date
 
   status        BookingStatus @default(PENDING)
   paymentStatus PaymentStatus @default(UNPAID)
@@ -175,7 +195,15 @@ model Booking {
   updatedAt DateTime @updatedAt
 
   @@index([spaceId, startDate, endDate])
+  @@index([spaceId, blockedFrom, endDate])
   @@index([status])
+}
+
+/// Whether a booking also holds the day before, for carrying in and setting up.
+enum SetupOption {
+  NONE
+  HALF_DAY
+  FULL_DAY
 }
 
 enum BookingStatus {

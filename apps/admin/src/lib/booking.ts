@@ -64,6 +64,8 @@ export type PriceQuote = {
   days: { date: string; price: number }[];
   dayTotal: number;
   cleaningFee: number;
+  setupFee: number;
+  discountAmount: number;
   total: number;
 };
 

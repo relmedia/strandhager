@@ -34,6 +34,8 @@ export function PricesForm({ slug }: { slug: string }) {
   const [space, setSpace] = useState<Space | null>(null);
   const [rates, setRates] = useState<Draft[]>([]);
   const [cleaningFee, setCleaningFee] = useState("");
+  const [setupFullDayFee, setSetupFullDayFee] = useState("");
+  const [setupHalfDayFee, setSetupHalfDayFee] = useState("");
   const [priceNote, setPriceNote] = useState("");
   const [noticeDays, setNoticeDays] = useState("");
   const [maxGuests, setMaxGuests] = useState("");
@@ -68,6 +70,8 @@ export function PricesForm({ slug }: { slug: string }) {
     setSpace(data);
     setRates(data.rates.map((rate) => ({ ...rate, key: newKey() })));
     setCleaningFee(String(data.cleaningFee));
+    setSetupFullDayFee(String(data.setupFullDayFee));
+    setSetupHalfDayFee(String(data.setupHalfDayFee));
     setPriceNote(data.priceNote ?? "");
     setNoticeDays(String(data.noticeDays));
     setMaxGuests(String(data.maxGuests));
@@ -98,6 +102,8 @@ export function PricesForm({ slug }: { slug: string }) {
     try {
       const updated = await updateSpace(slug, {
         cleaningFee: Number(cleaningFee) || 0,
+        setupFullDayFee: Number(setupFullDayFee) || 0,
+        setupHalfDayFee: Number(setupHalfDayFee) || 0,
         priceNote: priceNote.trim(),
         noticeDays: Number(noticeDays) || 0,
         maxGuests: Number(maxGuests) || 1,
@@ -252,6 +258,36 @@ export function PricesForm({ slug }: { slug: string }) {
           <p className="mt-1 text-muted-foreground text-sm">
             Gjelder {space.name} og vises på nettsiden.
           </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="setup-full">Rigging, full dag (kr)</Label>
+            <Input
+              id="setup-full"
+              type="number"
+              min={0}
+              value={setupFullDayFee}
+              onChange={(event) => setSetupFullDayFee(event.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              Flat pris for å holde av hele dagen før leien.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="setup-half">Rigging, halv dag (kr)</Label>
+            <Input
+              id="setup-half"
+              type="number"
+              min={0}
+              value={setupHalfDayFee}
+              onChange={(event) => setSetupHalfDayFee(event.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              Holder av den samme dagen, til halv pris.
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">

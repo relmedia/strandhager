@@ -35,6 +35,12 @@ type CalendarProps = {
    * and which are taken. Months can still be browsed, days cannot be picked.
    */
   readOnly?: boolean;
+  /**
+   * The day held for rigging, when the guest has bought one. Drawn as part of
+   * the selection but distinct from the rented days, so it is obvious the
+   * booking reaches one day further back than the dates they picked.
+   */
+  setupDate?: IsoDate | null;
 };
 
 export function AvailabilityCalendar({
@@ -46,6 +52,7 @@ export function AvailabilityCalendar({
   monthsAhead,
   maxDays,
   readOnly = false,
+  setupDate = null,
 }: CalendarProps) {
   const firstMonth = startOfMonth(availability?.minDate ?? month);
   const lastMonth = addMonths(firstMonth, monthsAhead - 1);
@@ -91,11 +98,15 @@ export function AvailabilityCalendar({
         onSelect={onSelect}
         maxDays={maxDays}
         readOnly={readOnly}
+        setupDate={setupDate}
       />
 
       <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-ink-muted text-xs">
         <Legend className="bg-white ring-1 ring-ink/15">Ledig</Legend>
-        {readOnly ? null : <Legend className="bg-brand">Valgt</Legend>}
+        {readOnly ? null : <Legend className="bg-brand-deep">Valgt</Legend>}
+        {setupDate ? (
+          <Legend className="bg-brand-soft ring-1 ring-brand-deep/40">Rigging</Legend>
+        ) : null}
         <Legend className="bg-ink/10">Opptatt</Legend>
         <Legend className="border border-ink/30 border-dashed">Stengt</Legend>
       </ul>
@@ -124,7 +135,9 @@ type DayState =
   /** Too far from the chosen start day: the range would exceed the limit. */
   | "tooFar"
   | "selected"
-  | "edge";
+  | "edge"
+  /** The day before the rental, held for rigging. */
+  | "setup";
 
 function MonthGrid({
   month,
@@ -133,9 +146,16 @@ function MonthGrid({
   onSelect,
   maxDays,
   readOnly,
+  setupDate,
 }: Pick<
   CalendarProps,
-  "month" | "availability" | "selection" | "onSelect" | "maxDays" | "readOnly"
+  | "month"
+  | "availability"
+  | "selection"
+  | "onSelect"
+  | "maxDays"
+  | "readOnly"
+  | "setupDate"
 >) {
   const days = useMemo(() => eachDay(month, endOfMonth(month)), [month]);
   const booked = useMemo(
@@ -189,6 +209,7 @@ function MonthGrid({
               closedDates,
               selection,
               maxDays,
+              setupDate ?? null,
             )}
             onSelect={onSelect}
             maxDays={maxDays}
@@ -208,10 +229,15 @@ function dayState(
   closedDates: Set<IsoDate>,
   selection: Selection | null,
   maxDays: number,
+  setupDate: IsoDate | null,
 ): DayState {
   // Until the booked days are known, no day may be picked: an already taken
   // day would otherwise look free for as long as the request takes.
   if (!availability) return "loading";
+
+  // Ahead of the selection check: the setup day sits directly before the start,
+  // so it must claim the cell before "edge" would.
+  if (setupDate && date === setupDate) return "setup";
 
   if (selection) {
     const end = selection.end ?? selection.start;
@@ -245,8 +271,11 @@ const CELL_STYLES: Record<DayState, string> = {
   loading: "animate-pulse bg-ink/5 text-transparent",
   available:
     "bg-white text-ink ring-1 ring-ink/10 hover:ring-brand hover:text-brand-deep",
-  edge: "bg-brand-deep text-white ring-1 ring-brand-deep",
-  selected: "bg-brand text-white ring-1 ring-brand",
+  edge: "bg-brand-deeper text-white ring-1 ring-brand-deeper",
+  // Hatched rather than filled: held, but not a day they are renting.
+  setup:
+    "bg-brand-soft text-brand-deep ring-1 ring-brand-deep/40 ring-dashed",
+  selected: "bg-brand-deep text-white ring-1 ring-brand-deep",
   booked: "bg-ink/10 text-ink-muted/50 line-through",
   blocked: "border border-ink/25 border-dashed bg-transparent text-ink-muted/40",
   closed: "bg-transparent text-ink-muted/30",

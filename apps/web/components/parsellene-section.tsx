@@ -12,6 +12,7 @@ import {
 import Image from "next/image";
 
 import { GalleryStrip } from "@/components/gallery-strip";
+import { MaskedHeading } from "@/components/masked-heading";
 import { SectionReveal } from "@/components/section-reveal";
 import { WaitlistCard } from "@/components/waitlist-card";
 import type { Architect, CabinFeatureIcon, ParselleneContent } from "@/lib/site-content";
@@ -31,8 +32,8 @@ function ArchitectCard({ person }: { person: Architect }) {
 
   const details = (
     <>
-      <p className="font-display text-ink text-xl md:text-2xl">{person.name}</p>
-      <p className="mt-1.5 text-ink-muted text-sm leading-relaxed">{person.role}</p>
+      <p className="font-display text-white text-xl md:text-2xl">{person.name}</p>
+      <p className="mt-1.5 text-sm text-white/60 leading-relaxed">{person.role}</p>
     </>
   );
 
@@ -47,7 +48,8 @@ function ArchitectCard({ person }: { person: Architect }) {
       rel="noreferrer noopener"
       className="group block rounded-sm outline-offset-4"
     >
-      <div className="relative aspect-square overflow-hidden rounded-sm bg-sand ring-1 ring-ink/10 transition-shadow duration-300 group-hover:ring-brand/40">
+      {/* The tile stays white on the dark band - these are line drawings. */}
+      <div className="relative aspect-square overflow-hidden rounded-card bg-white ring-1 ring-white/15 transition-all duration-300 group-hover:ring-brand-light/50">
         <Image
           src={doc.preview}
           alt={doc.previewAlt}
@@ -59,7 +61,7 @@ function ArchitectCard({ person }: { person: Architect }) {
 
       <div className="mt-4">{details}</div>
 
-      <span className="mt-3 inline-flex items-center gap-2 text-sea-deep text-sm transition-colors duration-300 group-hover:text-brand-deep">
+      <span className="mt-3 inline-flex items-center gap-2 text-sea-light text-sm transition-colors duration-300 group-hover:text-brand-light">
         <FileText className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
         {doc.label} (PDF)
         <ArrowUpRight
@@ -77,90 +79,103 @@ export function ParselleneSection({ parsellene }: { parsellene: ParselleneConten
   return (
     <SectionReveal
       id={parsellene.id}
-      className="relative overflow-hidden bg-brand-soft py-24 text-ink md:py-32"
+      className="relative overflow-hidden bg-night py-28 text-white md:py-40"
     >
-      {/* Soft logo green with a white glow at the top for depth, and a hint
-          of the sea blue near the bottom to lead into the section below. */}
+      {/* Dusk in the gardens: the green reads as light coming through planting
+          at the top left, the sea as cold light along the bottom right. The
+          dark band is also the page's rhythm break - two light sections sat
+          back to back before this. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_10%_-10%,rgba(255,255,255,0.75),transparent_55%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_8%_-5%,color-mix(in_oklab,var(--brand-green)_26%,transparent),transparent_60%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -bottom-40 -left-32 size-144 rounded-full bg-sea-mist/70 blur-3xl"
+        className="pointer-events-none absolute -right-40 -bottom-48 size-144 rounded-full bg-sea-deep/25 blur-3xl"
+      />
+      {/* A faint grain so the large dark field never looks like flat fill. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.035] mix-blend-overlay bg-[radial-gradient(#ffffff_1px,transparent_1px)] bg-[size:4px_4px]"
       />
 
-      {/* A slim deep-green accent along the seam against the sand above. */}
+      {/* A bright seam where the warm band above meets the dusk. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-transparent via-brand-deep/30 to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-light/50 to-transparent"
       />
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-8">
-        <div className="grid gap-8 md:grid-cols-12 md:items-end">
-          <div className="md:col-span-7">
+        <div className="grid gap-10 md:grid-cols-12 md:gap-8">
+          <div className="md:col-span-8">
             <div className="flex items-center gap-4">
-              <span data-reveal-rule className="h-px w-10 bg-brand/60 md:w-14" />
-              <span className="font-medium text-brand-deep text-xs tracking-[0.26em] uppercase md:text-sm">
+              <span data-reveal-rule className="h-px w-10 bg-brand-light/70 md:w-14" />
+              <span className="font-medium text-brand-light text-xs tracking-[0.26em] uppercase md:text-sm">
                 {parsellene.eyebrow}
               </span>
             </div>
-            <h2
-              data-reveal
-              className="mt-5 max-w-xl font-display text-4xl leading-[1.05] tracking-tight md:text-5xl lg:text-6xl"
-            >
-              {parsellene.title}
-            </h2>
+            <MaskedHeading
+              text={parsellene.title}
+              className="voice-display mt-6 max-w-2xl font-display text-display-lg tracking-[-0.02em]"
+            />
           </div>
-          <p data-reveal className="text-ink-muted text-lg leading-relaxed md:col-span-5">
+          <p
+            data-reveal
+            className="border-brand-light/30 border-l-2 pl-5 text-lg text-white/70 leading-relaxed md:col-span-4 md:self-end"
+          >
             {parsellene.lead}
           </p>
         </div>
 
-        <ul className="mt-14 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <ul className="mt-16 grid grid-cols-2 gap-3 md:mt-20 md:grid-cols-4 md:gap-4">
           {parsellene.stats.map((stat) => (
             <li
               key={stat.label}
-              data-reveal
-              className="rounded-sm bg-white px-5 py-7 shadow-brand-deep/5 shadow-sm ring-1 ring-ink/5 md:px-6 md:py-8"
+              data-slide="right"
+              className="group relative overflow-hidden rounded-panel bg-white/[0.04] px-5 py-7 ring-1 ring-white/10 transition-colors duration-500 hover:bg-white/[0.07] hover:ring-brand-light/30 md:px-6 md:py-8"
             >
-              <p className="font-display text-4xl leading-none md:text-5xl">
+              <span
+                aria-hidden
+                className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-light/60 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+              />
+              <p className="voice-title font-display text-5xl text-white leading-none md:text-6xl">
                 <span data-count={stat.value}>{stat.value}</span>
-                <span className="ml-1.5 align-middle font-sans text-base text-brand-deep md:text-lg">
+                <span className="ml-1.5 align-middle font-sans text-base text-brand-light md:text-lg">
                   {stat.unit}
                 </span>
               </p>
-              <p className="mt-3 text-ink-muted text-sm leading-snug">{stat.label}</p>
+              <p className="mt-3 text-sm text-white/60 leading-snug">{stat.label}</p>
             </li>
           ))}
         </ul>
 
-        <div className="mt-16 grid gap-12 lg:grid-cols-12 lg:gap-14">
-          <div className="lg:col-span-7">
+        <div className="mt-20 grid gap-12 md:mt-28 lg:grid-cols-12 lg:items-start lg:gap-16">
+          <div className="lg:sticky lg:top-28 lg:col-span-7">
             <figure
-              data-reveal
-              className="relative aspect-4/3 overflow-hidden rounded-sm ring-1 ring-ink/10"
+              data-reveal-clip
+              className="relative aspect-4/3 overflow-hidden rounded-frame ring-1 ring-white/10"
             >
               <Image
                 src={parsellene.image}
                 alt={parsellene.imageAlt}
                 fill
                 sizes="(max-width: 1024px) 100vw, 58vw"
-                className="scale-105 object-cover"
+                className="scale-110 object-cover"
                 data-parallax
               />
-              <div className="absolute inset-0 bg-linear-to-t from-ink/30 via-transparent to-transparent" />
+              {/* Grades the photo into the dusk rather than cutting it off. */}
+              <div className="absolute inset-0 bg-linear-to-t from-night/70 via-night/10 to-transparent" />
             </figure>
           </div>
 
           <div className="lg:col-span-5">
-            <p data-reveal className="text-base text-ink-muted leading-relaxed md:text-lg">
+            <p data-reveal className="text-lg text-white/70 leading-relaxed md:text-xl">
               {parsellene.body}
             </p>
 
             <p
               data-reveal
-              className="mt-10 font-medium text-ink text-xs tracking-[0.22em] uppercase"
+              className="mt-12 font-medium text-white text-xs tracking-[0.22em] uppercase"
             >
               {cabin.title}
             </p>
@@ -172,12 +187,12 @@ export function ParselleneSection({ parsellene }: { parsellene: ParselleneConten
                   <li
                     key={feature.label}
                     data-reveal
-                    className="group flex items-center gap-3 rounded-xl bg-white px-4 py-3.5 ring-1 ring-ink/5 transition-all duration-300 hover:shadow-brand-deep/10 hover:shadow-md hover:ring-brand/25"
+                    className="group flex items-center gap-3 rounded-card bg-white/[0.04] px-4 py-3.5 ring-1 ring-white/10 transition-[background-color,box-shadow] duration-300 hover:bg-white/[0.08] hover:ring-sea-light/30"
                   >
-                    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-sea/15 text-sea-deep transition-colors duration-300 group-hover:bg-sea group-hover:text-white">
+                    <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-card bg-sea-light/15 text-sea-light transition-colors duration-300 group-hover:bg-sea-light group-hover:text-night">
                       <Icon className="size-4.5" strokeWidth={1.5} aria-hidden />
                     </span>
-                    <span className="font-medium text-ink text-sm">{feature.label}</span>
+                    <span className="font-medium text-sm text-white">{feature.label}</span>
                   </li>
                 );
               })}
@@ -187,7 +202,7 @@ export function ParselleneSection({ parsellene }: { parsellene: ParselleneConten
 
         <p
           data-reveal
-          className="mt-24 max-w-3xl font-display text-2xl text-ink/85 leading-snug md:text-3xl lg:mt-28"
+          className="voice-title mt-28 max-w-4xl font-display text-display-md text-white/85 lg:mt-36"
         >
           {parsellene.details}
         </p>
@@ -198,31 +213,32 @@ export function ParselleneSection({ parsellene }: { parsellene: ParselleneConten
           items={parsellene.gallery}
           viewAllHref="/galleri/parsellene"
           viewAllLabel="Se alle bildene"
-          tone="light"
+          tone="dark"
         />
 
         <div className="mt-20 grid gap-6 md:mt-24 md:grid-cols-12">
           <div
             data-reveal
-            className="rounded-sm bg-white p-8 shadow-brand-deep/5 shadow-sm ring-1 ring-ink/5 md:col-span-5 md:p-10"
+            className="rounded-frame bg-white/[0.04] p-8 ring-1 ring-white/10 md:col-span-5 md:p-10"
           >
-            <p className="font-medium text-brand-deep text-xs tracking-[0.22em] uppercase">
+            <p className="font-medium text-brand-light text-xs tracking-[0.22em] uppercase">
               {board.title}
             </p>
-            <p className="mt-4 text-base text-ink-muted leading-relaxed">{board.body}</p>
-            <ul className="mt-6 border-ink/10 border-t">
+            <p className="mt-4 text-base text-white/70 leading-relaxed">{board.body}</p>
+            <ul className="mt-6 border-white/10 border-t">
               {board.tasks.map((task, index) => (
-                <li key={task} className="flex items-baseline gap-4 border-ink/10 border-b py-4">
-                  <span className="font-medium text-brand-deep text-xs tabular-nums">
+                <li key={task} className="flex items-baseline gap-4 border-white/10 border-b py-4">
+                  {/* The warm accent, earning its keep on the dark field. */}
+                  <span className="font-medium text-clay-light text-xs tabular-nums">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="text-ink/85 text-sm leading-relaxed">{task}</span>
+                  <span className="text-sm text-white/75 leading-relaxed">{task}</span>
                 </li>
               ))}
             </ul>
             <a
               href={`mailto:${board.email}`}
-              className="group mt-6 inline-flex items-center gap-2 text-ink text-sm underline-offset-4 transition-colors hover:text-brand-deep hover:underline"
+              className="group mt-6 inline-flex items-center gap-2 text-sm text-white underline-offset-4 transition-colors hover:text-brand-light hover:underline"
             >
               <Mail className="size-4" strokeWidth={1.5} aria-hidden />
               {board.email}
@@ -231,9 +247,9 @@ export function ParselleneSection({ parsellene }: { parsellene: ParselleneConten
 
           <div
             data-reveal
-            className="rounded-sm bg-white p-8 shadow-brand-deep/5 shadow-sm ring-1 ring-ink/5 md:col-span-7 md:p-10"
+            className="rounded-frame bg-white/[0.04] p-8 ring-1 ring-white/10 md:col-span-7 md:p-10"
           >
-            <p className="font-medium text-brand-deep text-xs tracking-[0.22em] uppercase">
+            <p className="font-medium text-brand-light text-xs tracking-[0.22em] uppercase">
               {architects.title}
             </p>
             <ul className="mt-6 grid gap-5 sm:grid-cols-2">

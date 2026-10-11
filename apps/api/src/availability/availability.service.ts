@@ -34,7 +34,9 @@ export class AvailabilityService {
 
     const bookedDates = new Set<IsoDate>();
     for (const booking of taken) {
-      const start = toIsoDate(booking.startDate);
+      // From blockedFrom, so a bought setup day shows as taken in the calendar
+      // rather than looking free right up until someone tries to book it.
+      const start = toIsoDate(booking.blockedFrom ?? booking.startDate);
       const end = toIsoDate(booking.endDate);
       for (const day of eachDay(start, end)) {
         bookedDates.add(day);

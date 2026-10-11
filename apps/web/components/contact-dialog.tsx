@@ -163,7 +163,7 @@ export function ContactDialog({
             <button
               type="button"
               onClick={close}
-              className="rounded-sm bg-brand px-5 py-2.5 font-medium text-sm text-white transition-colors hover:bg-brand-deep"
+              className="rounded-sm bg-brand-deep px-5 py-2.5 font-medium text-sm text-white transition-colors hover:bg-brand-deeper"
             >
               Lukk
             </button>
@@ -258,7 +258,7 @@ export function ContactDialog({
                   !draft.message.trim() ||
                   (Boolean(TURNSTILE_SITE_KEY) && !botToken)
                 }
-                className="inline-flex items-center gap-2 rounded-sm bg-brand px-6 py-3 font-medium text-sm text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-sm bg-brand-deep px-6 py-3 font-medium text-sm text-white transition-colors hover:bg-brand-deeper disabled:opacity-60"
               >
                 {sending ? (
                   <LoaderCircle className="size-4 animate-spin" aria-hidden />

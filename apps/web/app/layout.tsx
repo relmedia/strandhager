@@ -15,6 +15,9 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
   display: "swap",
+  /* SOFT/WONK do not exist in the file unless requested here; opsz is left
+     for font-optical-sizing to track. See voice-* in globals.css. */
+  axes: ["SOFT", "WONK", "opsz"],
 });
 
 export const metadata: Metadata = {

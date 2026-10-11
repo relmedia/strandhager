@@ -33,8 +33,9 @@ export function BookingReceipt({ booking, cancelToken, onReset }: ReceiptProps) 
         Forespørselen er sendt
       </h3>
       <p className="mt-3 text-ink-muted text-sm leading-relaxed">
-        Vi har holdt av {formatRange(booking.startDate, booking.endDate)} for deg. Du
-        hører fra oss så snart forespørselen er behandlet.
+        Vi har holdt av {formatRange(booking.startDate, booking.endDate)} for deg
+        {booking.setupOption !== "NONE" ? ", med rigging dagen før" : ""}. Du hører
+        fra oss så snart forespørselen er behandlet.
       </p>
 
       <dl className="mt-7 space-y-3 border-ink/10 border-y py-6 text-sm">
@@ -48,6 +49,24 @@ export function BookingReceipt({ booking, cancelToken, onReset }: ReceiptProps) 
           <dt className="text-ink-muted">Dager</dt>
           <dd className="text-ink">{booking.days}</dd>
         </div>
+        {booking.setupOption !== "NONE" && booking.setupDate ? (
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-ink-muted">Rigging</dt>
+            <dd className="text-ink">
+              {booking.setupOption === "FULL_DAY" ? "Full dag" : "Halv dag"}
+              {" · "}
+              {formatRange(booking.setupDate, booking.setupDate)}
+            </dd>
+          </div>
+        ) : null}
+        {booking.discountAmount > 0 ? (
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-ink-muted">Parsellantrabatt</dt>
+            <dd className="font-medium text-brand-deep">
+              −{formatPrice(booking.discountAmount)} ({booking.discountPercent} %)
+            </dd>
+          </div>
+        ) : null}
         <div className="flex items-baseline justify-between gap-4">
           <dt className="text-ink-muted">Totalt</dt>
           <dd className="font-medium text-ink">{formatPrice(booking.total)}</dd>

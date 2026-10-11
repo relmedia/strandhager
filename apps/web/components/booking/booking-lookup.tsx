@@ -36,7 +36,7 @@ const STATUS: Record<
   CONFIRMED: {
     label: "Bekreftet",
     description: "Dagene er dine. Vi tar kontakt om det praktiske i god tid.",
-    className: "bg-brand text-white",
+    className: "bg-brand-deep text-white",
     Icon: CircleCheck,
   },
   DECLINED: {

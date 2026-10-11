@@ -89,9 +89,11 @@ export function WaitlistCard({ waitlist }: { waitlist: Waitlist }) {
   }
 
   return (
+    /* Deliberately the only white surface on the dusk band - the lit window the
+       section points at. The lift comes from shadow, not a tint. */
     <div
       data-reveal
-      className="mt-6 rounded-sm bg-white text-ink shadow-brand-deep/5 shadow-sm ring-1 ring-ink/5"
+      className="mt-10 rounded-frame bg-white text-ink shadow-2xl shadow-night/40 ring-1 ring-white/10 md:mt-14"
     >
       <div className="grid gap-8 p-8 md:grid-cols-12 md:items-center md:p-12">
         <div className="md:col-span-7">
@@ -109,9 +111,9 @@ export function WaitlistCard({ waitlist }: { waitlist: Waitlist }) {
             onClick={() => setOpen((was) => !was)}
             aria-expanded={open}
             aria-controls="venteliste-skjema"
-            className="group inline-flex items-center justify-between gap-3 rounded-sm bg-brand px-6 py-3.5 font-medium text-sm text-white transition-colors hover:bg-brand-deep"
+            className="group inline-flex items-center justify-between gap-3 rounded-chip bg-brand-deep px-6 py-3.5 font-medium text-sm text-white transition-colors hover:bg-brand-deeper"
           >
-            Sett meg på ventelisten
+            Sett meg på interesselisten
             <UserPlus
               className="size-4 shrink-0 transition-transform duration-300 group-hover:scale-110"
               strokeWidth={1.75}
@@ -123,7 +125,7 @@ export function WaitlistCard({ waitlist }: { waitlist: Waitlist }) {
             href={waitlist.facebookUrl}
             target="_blank"
             rel="noreferrer noopener"
-            className="group inline-flex items-center justify-between gap-3 rounded-sm px-6 py-3.5 font-medium text-ink text-sm ring-1 ring-ink/15 transition-colors hover:bg-sand hover:ring-ink/25"
+            className="group inline-flex items-center justify-between gap-3 rounded-chip px-6 py-3.5 font-medium text-ink text-sm ring-1 ring-ink/15 transition-colors hover:bg-sand hover:ring-ink/25"
           >
             {waitlist.facebookLabel}
             <ArrowUpRight
@@ -153,7 +155,7 @@ export function WaitlistCard({ waitlist }: { waitlist: Waitlist }) {
           ) : (
             <form onSubmit={submit} className="pt-8">
               <p className="font-medium text-ink text-xs tracking-[0.22em] uppercase">
-                Meld deg på ventelisten
+                Meld deg på interesselisten
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -228,7 +230,7 @@ export function WaitlistCard({ waitlist }: { waitlist: Waitlist }) {
                 <button
                   type="submit"
                   disabled={sending}
-                  className="inline-flex items-center gap-2 rounded-sm bg-brand px-6 py-3 font-medium text-sm text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-sm bg-brand-deep px-6 py-3 font-medium text-sm text-white transition-colors hover:bg-brand-deeper disabled:opacity-60"
                 >
                   {sending ? (
                     <LoaderCircle className="size-4 animate-spin" aria-hidden />
@@ -275,7 +277,7 @@ function Confirmation({
       </span>
 
       <div className="flex-1">
-        <p className="font-display text-xl text-ink">Du står på ventelisten</p>
+        <p className="font-display text-xl text-ink">Du står på interesselisten</p>
         <p className="mt-1.5 text-ink-muted text-sm leading-relaxed">
           Du er nummer {position} i køen. Vi tar kontakt på e-post når det blir en
           parsell ledig. Har du spørsmål i mellomtiden, ta kontakt med {contactName}{" "}

@@ -106,7 +106,7 @@ export default async function GalleriPage({ params }: PageProps) {
                   <li key={item.slug}>
                     <Link
                       href={`/galleri/${item.slug}`}
-                      className="inline-flex items-center rounded-full bg-brand-soft px-4 py-2 font-medium text-brand-deep text-sm transition-colors hover:bg-brand hover:text-white"
+                      className="inline-flex items-center rounded-full bg-brand-soft px-4 py-2 font-medium text-brand-deep text-sm transition-colors hover:bg-brand-deep hover:text-white"
                     >
                       {item.title}
                     </Link>

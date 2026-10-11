@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-import { CalendarRange, Globe, LoaderCircle, Minus, Plus } from "lucide-react";
+import {
+  CalendarRange,
+  Globe,
+  LoaderCircle,
+  Minus,
+  Percent,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +32,7 @@ const MIN_DAYS = 1;
 const MAX_DAYS = 365;
 
 const clamp = (value: number) => Math.min(MAX_DAYS, Math.max(MIN_DAYS, value));
+const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
 export function BookingSettingsForm({ slug }: { slug: string }) {
   const [space, setSpace] = useState<Space | null>(null);
@@ -34,6 +42,7 @@ export function BookingSettingsForm({ slug }: { slug: string }) {
 
   /** Kept as text so the field can be emptied while typing a new number. */
   const [maxDays, setMaxDays] = useState("");
+  const [discount, setDiscount] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -43,6 +52,7 @@ export function BookingSettingsForm({ slug }: { slug: string }) {
         if (!active) return;
         setSpace(loaded);
         setMaxDays(String(loaded.maxBookingDays));
+        setDiscount(String(loaded.parcelOwnerDiscountPercent));
       })
       .catch((cause) => {
         if (!active) return;
@@ -58,19 +68,33 @@ export function BookingSettingsForm({ slug }: { slug: string }) {
 
   const parsed = Number.parseInt(maxDays, 10);
   const valid = Number.isInteger(parsed) && parsed >= MIN_DAYS && parsed <= MAX_DAYS;
-  const dirty = space !== null && valid && parsed !== space.maxBookingDays;
+
+  const parsedDiscount = Number.parseInt(discount, 10);
+  const discountValid =
+    Number.isInteger(parsedDiscount) && parsedDiscount >= 0 && parsedDiscount <= 100;
+
+  const dirty =
+    space !== null &&
+    valid &&
+    discountValid &&
+    (parsed !== space.maxBookingDays ||
+      parsedDiscount !== space.parcelOwnerDiscountPercent);
 
   const step = (delta: number) =>
     setMaxDays(String(clamp((valid ? parsed : (space?.maxBookingDays ?? 1)) + delta)));
 
   async function save() {
-    if (!space || !valid) return;
+    if (!space || !valid || !discountValid) return;
     setSaving(true);
 
     try {
-      const updated = await updateSpace(slug, { maxBookingDays: parsed });
+      const updated = await updateSpace(slug, {
+        maxBookingDays: parsed,
+        parcelOwnerDiscountPercent: parsedDiscount,
+      });
       setSpace(updated);
       setMaxDays(String(updated.maxBookingDays));
+      setDiscount(String(updated.parcelOwnerDiscountPercent));
       toast.success("Bookingreglene er lagret");
     } catch (cause) {
       toast.error(
@@ -222,6 +246,42 @@ export function BookingSettingsForm({ slug }: { slug: string }) {
             {valid
               ? `Gjester kan booke opptil ${parsed} ${parsed === 1 ? "dag" : "dager"} sammenhengende. Lengre opphold må avtales direkte med styret.`
               : `Velg et antall mellom ${MIN_DAYS} og ${MAX_DAYS} dager.`}
+          </p>
+
+          <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="parcel-discount">Parsellantrabatt</Label>
+              <p className="text-muted-foreground text-sm">
+                Rabatt for den som eier en parsell i dag. Trekkes automatisk fra hele
+                summen – leie, rigging og utvask – når e-postadressen i
+                bookingskjemaet står oppført som eier i Parsellanter.
+              </p>
+            </div>
+
+            <div className="relative shrink-0">
+              <Input
+                id="parcel-discount"
+                inputMode="numeric"
+                value={discount}
+                onChange={(event) =>
+                  setDiscount(event.target.value.replace(/\D/g, "").slice(0, 3))
+                }
+                onBlur={() => {
+                  if (discountValid) setDiscount(String(clampPercent(parsedDiscount)));
+                }}
+                className="w-24 pr-9 text-right tabular-nums"
+                aria-invalid={!discountValid}
+              />
+              <Percent className="pointer-events-none absolute inset-y-0 right-3 my-auto size-4 text-muted-foreground" />
+            </div>
+          </div>
+
+          <p className="text-muted-foreground text-xs">
+            {!discountValid
+              ? "Velg en prosent mellom 0 og 100."
+              : parsedDiscount === 0
+                ? "Ingen parsellantrabatt. Alle betaler samme pris."
+                : `Parsellanter får ${parsedDiscount} % avslag på hele summen. Rabatten regnes ut på nytt når bookingen sendes inn, så den kan ikke overstyres fra nettsiden.`}
           </p>
         </CardContent>
 

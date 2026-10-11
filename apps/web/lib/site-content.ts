@@ -358,7 +358,7 @@ export const site: SiteContent = {
         {
           icon: "harbour",
           name: "Ølbergstranden og havnen",
-          distance: "5 min til fots",
+          distance: "30 min til fots",
           description:
             "Lun, langgrunn sandstrand rett ved hagene, og en levende fiskehavn der båtene fortsatt lander dagens fangst. Ølberg-kiosken er kjent for regionens beste softis.",
         },

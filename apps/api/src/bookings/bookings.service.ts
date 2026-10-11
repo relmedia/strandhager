@@ -9,10 +9,22 @@ import { BookingStatus, CancelledBy, PaymentStatus, type Prisma } from '@cabin/d
 
 import { PrismaService } from '../prisma/prisma.service';
 import { SpacesService } from '../spaces/spaces.service';
-import { assertBookableRange, priceOrThrow } from '../pricing/pricing.service';
+import {
+  assertBookableRange,
+  priceOrThrow,
+  setupFeesOf,
+  PricingService,
+} from '../pricing/pricing.service';
+import {
+  blockedFromFor,
+  setupDateFor,
+  unpricedWeekdays,
+  type SetupOption,
+} from '../pricing/quote';
 import {
   addDays,
   daysBetween,
+  isoWeekday,
   parseIsoDate,
   toIsoDate,
   todayIso,
@@ -64,6 +76,7 @@ export class BookingsService {
     private readonly spaces: SpacesService,
     private readonly notifications: NotificationsService,
     private readonly payments: PaymentsService,
+    private readonly pricing: PricingService,
   ) {}
 
   // --- Public -------------------------------------------------------------
@@ -101,7 +114,38 @@ export class BookingsService {
       );
     }
 
-    const quote = priceOrThrow(space.rates, space.cleaningFee, start, end);
+    const setupOption: SetupOption = dto.setupOption ?? 'NONE';
+    const setupDate = setupDateFor(setupOption, start);
+
+    // The setup day is held as firmly as a rented one, so it has to clear the
+    // same notice period and the same weekday closures.
+    if (setupDate) {
+      if (daysBetween(earliest, setupDate) < 0) {
+        throw new BadRequestException(
+          `Rigging dagen før krever at ${setupDate} er minst ${space.noticeDays} dager fram i tid. Velg en senere startdato, eller book uten rigging.`,
+        );
+      }
+
+      if (unpricedWeekdays(space.rates).includes(isoWeekday(setupDate))) {
+        throw new BadRequestException(
+          `Felleshuset er ikke åpent ${setupDate}, så rigging dagen før er ikke mulig for denne datoen.`,
+        );
+      }
+    }
+
+    // Worked out here from the submitted email, never taken from the request
+    // body: otherwise anyone could post their own discount straight to the API.
+    const discountPercent = await this.pricing.discountPercentFor(space, dto.email);
+
+    const quote = priceOrThrow(
+      space.rates,
+      space.cleaningFee,
+      start,
+      end,
+      setupOption,
+      setupFeesOf(space),
+      discountPercent,
+    );
 
     // Serializable keeps two people from slipping through the free-days check
     // at the same time and both booking the same weekend.
@@ -123,6 +167,21 @@ export class BookingsService {
           );
         }
 
+        // Checked separately from the rental days so the guest is told it is
+        // the extra day that is gone, not their actual dates.
+        if (setupDate) {
+          const [setupTaken, setupShut] = await Promise.all([
+            findOverlapping(tx, space.id, setupDate, setupDate),
+            findOverlappingBlackouts(tx, space.id, setupDate, setupDate),
+          ]);
+
+          if (setupTaken.length > 0 || setupShut.length > 0) {
+            throw new ConflictException(
+              `Dagen før (${setupDate}) er ikke ledig, så rigging kan ikke bestilles. Book uten rigging, eller velg en annen dato.`,
+            );
+          }
+        }
+
         const guest = await upsertGuest(tx, dto);
 
         return createWithReference(tx, {
@@ -130,6 +189,11 @@ export class BookingsService {
           guestId: guest.id,
           startDate: parseIsoDate(start),
           endDate: parseIsoDate(end),
+          blockedFrom: parseIsoDate(blockedFromFor(setupOption, start)),
+          setupOption,
+          setupFee: quote.setupFee,
+          discountPercent: quote.discountPercent,
+          discountAmount: quote.discountAmount,
           guests: dto.guests,
           purpose: dto.purpose ?? null,
           message: dto.message ?? null,
@@ -200,6 +264,9 @@ export class BookingsService {
           guestId: guest.id,
           startDate: parseIsoDate(start),
           endDate: parseIsoDate(end),
+          // Manual bookings carry no setup day, but the column still has to
+          // agree with startDate or overlap would miss the first day.
+          blockedFrom: parseIsoDate(start),
           guests: dto.guests,
           purpose: dto.purpose ?? null,
           message: null,
@@ -373,17 +440,29 @@ export class BookingsService {
 
     if (movingDates) {
       const range = assertBookableRange(start, end, existing.space.maxBookingDays);
+      // The booking keeps whichever setup option it was made with; moving the
+      // dates moves the setup day with them and re-prices at today's fees.
       const quote = priceOrThrow(
         existing.space.rates,
         existing.space.cleaningFee,
         range.start,
         range.end,
+        existing.setupOption,
+        setupFeesOf(existing.space),
+        // Kept at whatever the booking was granted, so moving a date never
+        // quietly takes a member's discount away or hands one out.
+        existing.discountPercent,
       );
 
       data.startDate = parseIsoDate(range.start);
       data.endDate = parseIsoDate(range.end);
+      data.blockedFrom = parseIsoDate(
+        blockedFromFor(existing.setupOption, range.start),
+      );
       data.dayTotal = quote.dayTotal;
       data.cleaningFee = quote.cleaningFee;
+      data.setupFee = quote.setupFee;
+      data.discountAmount = quote.discountAmount;
       data.total = quote.total;
     }
 

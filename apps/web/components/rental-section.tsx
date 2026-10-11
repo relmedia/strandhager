@@ -4,6 +4,7 @@ import Image from "next/image";
 import { BookingPanel } from "@/components/booking/booking-panel";
 import { PriceCards } from "@/components/booking/price-cards";
 import { GalleryStrip } from "@/components/gallery-strip";
+import { MaskedHeading } from "@/components/masked-heading";
 import { SectionReveal } from "@/components/section-reveal";
 import type { Space } from "@/lib/booking";
 import type { ContactContent, UtleieContent } from "@/lib/site-content";
@@ -25,7 +26,10 @@ type RentalSectionProps = {
 export function RentalSection({ utleie, contact, space }: RentalSectionProps) {
 
   return (
-    <SectionReveal id={utleie.id} className="relative overflow-hidden bg-sand py-24 md:py-32">
+    <SectionReveal
+      id={utleie.id}
+      className="relative overflow-hidden bg-paper py-28 md:py-40"
+    >
       {/* A slim brand-green accent along the seam against the hero imagery. */}
       <div
         aria-hidden
@@ -33,89 +37,96 @@ export function RentalSection({ utleie, contact, space }: RentalSectionProps) {
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-40 -right-32 size-144 rounded-full bg-brand-soft/70 blur-3xl"
+        className="pointer-events-none absolute -top-40 -right-32 size-144 rounded-full bg-brand-soft/60 blur-3xl"
       />
 
       <div className="relative mx-auto max-w-6xl px-5 md:px-8">
-        <div className="grid gap-8 md:grid-cols-12 md:items-end">
-          <div className="md:col-span-7">
+        <div className="grid gap-10 md:grid-cols-12 md:gap-8">
+          <div className="md:col-span-8">
             <div className="flex items-center gap-4">
               <span data-reveal-rule className="h-px w-10 bg-brand/60 md:w-14" />
               <span className="font-medium text-brand-deep text-xs tracking-[0.26em] uppercase md:text-sm">
                 {utleie.eyebrow}
               </span>
             </div>
-            <h2
-              data-reveal
-              className="mt-5 max-w-xl font-display text-4xl leading-[1.05] tracking-tight md:text-5xl lg:text-6xl"
-            >
-              {utleie.title}
-            </h2>
+            <MaskedHeading
+              text={utleie.title}
+              className="voice-display mt-6 max-w-2xl font-display text-display-lg tracking-[-0.02em]"
+            />
           </div>
-          <p data-reveal className="text-ink-muted text-lg leading-relaxed md:col-span-5">
+          {/* The lead hangs off a rule in the outer column - an editorial
+              sidenote rather than a second paragraph of equal weight. */}
+          <p
+            data-reveal
+            className="border-brand/30 border-l-2 pl-5 text-ink-muted text-lg leading-relaxed md:col-span-4 md:self-end"
+          >
             {utleie.lead}
           </p>
         </div>
 
-        <div className="mt-14 grid gap-12 lg:grid-cols-12 lg:gap-14">
-          <div className="lg:col-span-7">
+        <div className="mt-16 grid gap-12 md:mt-20 lg:grid-cols-12 lg:items-start lg:gap-16">
+          {/* The frame holds position while the detail column scrolls past it. */}
+          <div className="lg:sticky lg:top-28 lg:col-span-7">
             <figure
-              data-reveal
-              className="relative aspect-16/11 overflow-hidden rounded-sm ring-1 ring-ink/10"
+              data-reveal-clip
+              className="relative aspect-16/11 overflow-hidden rounded-frame ring-1 ring-ink/10"
             >
               <Image
                 src={utleie.image}
                 alt={utleie.imageAlt}
                 fill
                 sizes="(max-width: 1024px) 100vw, 58vw"
-                className="scale-105 object-cover"
+                className="scale-110 object-cover"
                 data-parallax
               />
-              <div className="absolute inset-0 bg-linear-to-t from-ink/45 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-night/55 via-night/5 to-transparent" />
 
-              <figcaption className="absolute bottom-5 left-5 rounded-sm bg-white/92 px-6 py-4 backdrop-blur-sm md:bottom-6 md:left-6">
-                <p className="font-display text-4xl text-brand-deep leading-none md:text-5xl">
+              <figcaption className="absolute bottom-5 left-5 right-5 flex items-end gap-5 rounded-panel bg-white/90 px-6 py-5 backdrop-blur-md md:bottom-6 md:left-6 md:right-auto">
+                <p className="voice-title font-display text-5xl text-brand-deep leading-none md:text-6xl">
                   <span data-count={utleie.capacity.value}>{utleie.capacity.value}</span>
-                  <span className="ml-2 align-middle font-sans text-base text-ink-muted md:text-lg">
+                </p>
+                <div className="pb-1">
+                  <p className="font-medium text-ink text-sm md:text-base">
                     {utleie.capacity.unit}
-                  </span>
-                </p>
-                <p className="mt-2 text-ink-muted text-xs tracking-[0.14em] uppercase">
-                  {utleie.capacity.label}
-                </p>
+                  </p>
+                  <p className="mt-1 text-ink-muted text-xs tracking-[0.14em] uppercase">
+                    {utleie.capacity.label}
+                  </p>
+                </div>
               </figcaption>
             </figure>
           </div>
 
           <div className="lg:col-span-5">
-            <p data-reveal className="text-base text-ink-muted leading-relaxed md:text-lg">
+            <p data-reveal className="text-lg text-ink-muted leading-relaxed md:text-xl">
               {utleie.body}
             </p>
 
             <p
               data-reveal
-              className="mt-10 font-medium text-ink text-xs tracking-[0.22em] uppercase"
+              className="mt-12 font-medium text-ink text-xs tracking-[0.22em] uppercase"
             >
               Passer til
             </p>
-            <ul className="mt-4 border-ink/10 border-t">
+            {/* Numbered rows that fill with green as they come into view. */}
+            <ul className="mt-5 border-ink/10 border-t">
               {utleie.uses.map((item, index) => (
                 <li
                   key={item}
                   data-reveal
-                  className="flex items-baseline gap-4 border-ink/10 border-b py-4"
+                  className="group flex items-baseline gap-5 border-ink/10 border-b py-5 transition-colors duration-300 hover:border-brand/40"
                 >
-                  <span className="font-medium text-brand text-xs tabular-nums">
+                  <span className="font-medium text-brand-deep text-xs tabular-nums transition-transform duration-300 group-hover:-translate-y-0.5">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="text-base text-ink">{item}</span>
+                  <span className="text-ink text-lg">{item}</span>
                 </li>
               ))}
             </ul>
           </div>
         </div>
 
-        <div className="mt-16 rounded-2xl bg-white/60 p-5 ring-1 ring-ink/10 backdrop-blur-sm md:mt-20 md:p-8">
+        <div className="mt-20 rounded-frame bg-white/70 p-5 ring-1 ring-ink/10 backdrop-blur-sm md:mt-28 md:p-8">
           <ul className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 md:gap-4">
             {utleie.facilities.map((facility, index) => {
               const Icon = facilityIcons[facility.icon];
@@ -124,16 +135,21 @@ export function RentalSection({ utleie, contact, space }: RentalSectionProps) {
                 <li
                   key={facility.label}
                   data-reveal
-                  className="group relative overflow-hidden rounded-xl bg-sand/90 p-6 ring-1 ring-ink/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-brand-deep/10 hover:shadow-lg hover:ring-brand/25"
+                  className="group relative overflow-hidden rounded-card bg-sand/90 p-6 ring-1 ring-ink/5 transition-[transform,box-shadow] duration-300 hover:-translate-y-1.5 hover:shadow-brand-deep/10 hover:shadow-xl hover:ring-brand/25"
                 >
                   <div
                     aria-hidden
                     className="absolute -top-12 -right-12 size-28 rounded-full bg-brand-soft opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-100"
                   />
-                  <span className="pointer-events-none absolute top-5 right-5 font-medium text-ink/20 text-xs tabular-nums transition-colors duration-300 group-hover:text-brand/50">
+                  {/* A rule that draws itself across the card on hover. */}
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-linear-to-r from-brand to-sea transition-transform duration-500 group-hover:scale-x-100"
+                  />
+                  <span className="pointer-events-none absolute top-5 right-5 font-medium text-clay/40 text-xs tabular-nums transition-colors duration-300 group-hover:text-clay">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="relative inline-flex size-11 items-center justify-center rounded-xl bg-brand-soft text-brand-deep transition-all duration-300 group-hover:scale-110 group-hover:bg-brand group-hover:text-white">
+                  <span className="relative inline-flex size-11 items-center justify-center rounded-card bg-brand-soft text-brand-deep transition-all duration-300 group-hover:scale-110 group-hover:bg-brand-deep group-hover:text-white">
                     <Icon className="size-5" strokeWidth={1.5} aria-hidden />
                   </span>
                   <p className="relative mt-5 font-medium text-base text-ink">{facility.label}</p>
@@ -150,7 +166,7 @@ export function RentalSection({ utleie, contact, space }: RentalSectionProps) {
               {utleie.equipment.map((item) => (
                 <li
                   key={item}
-                  className="inline-flex flex-auto items-center justify-center gap-1.5 rounded-full bg-brand-soft px-3.5 py-2 text-center font-medium text-brand-deep text-sm transition-all duration-300 hover:bg-brand hover:text-white"
+                  className="inline-flex flex-auto items-center justify-center gap-1.5 rounded-chip bg-brand-soft px-3.5 py-2 text-center font-medium text-brand-deep text-sm transition-all duration-300 hover:bg-brand-deep hover:text-white"
                 >
                   <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
                   {item}
@@ -197,7 +213,7 @@ function BookingContact({
   return (
     <div
       data-reveal
-      className={`rounded-sm bg-white p-7 ring-1 ring-ink/10 md:p-10 ${fallback ? "" : "mt-6"}`}
+      className={`rounded-frame bg-white p-7 ring-1 ring-ink/10 md:p-10 ${fallback ? "" : "mt-6"}`}
     >
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>

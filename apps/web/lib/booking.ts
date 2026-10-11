@@ -10,12 +10,21 @@ export type Rate = {
   amount: number;
 };
 
+/** Whether the guest also holds the day before the rental, for setting up. */
+export type SetupOption = "NONE" | "HALF_DAY" | "FULL_DAY";
+
 export type Space = {
   slug: string;
   name: string;
   description: string | null;
   maxGuests: number;
   cleaningFee: number;
+  /** Flat price for holding the whole day before, for rigging. */
+  setupFullDayFee: number;
+  /** Flat price for half of the day before. Holds the same day, costs less. */
+  setupHalfDayFee: number;
+  /** Percentage off the whole total for a current plot owner. 0 switches it off. */
+  parcelOwnerDiscountPercent: number;
   priceNote: string | null;
   noticeDays: number;
   /** The longest stretch of days a single booking may cover. */
@@ -37,11 +46,36 @@ export type Availability = {
   closedDates: IsoDate[];
 };
 
+export type QuoteSetup = {
+  option: Exclude<SetupOption, "NONE">;
+  /** The day being held, always the one before the first rented day. */
+  date: IsoDate;
+  label: string;
+  amount: number;
+};
+
+/** The members' discount, when the booker currently owns a plot. */
+export type QuoteDiscount = {
+  percent: number;
+  label: string;
+  /** Positive; subtracted from the subtotal. */
+  amount: number;
+};
+
 export type Quote = {
   currency: "NOK";
   days: { date: IsoDate; label: string; amount: number }[];
   dayTotal: number;
   cleaningFee: number;
+  /** Null when no setup day was bought. */
+  setup: QuoteSetup | null;
+  setupFee: number;
+  /** Everything before the members' discount comes off. */
+  subtotal: number;
+  /** Null unless the email belongs to a current plot owner. */
+  discount: QuoteDiscount | null;
+  discountPercent: number;
+  discountAmount: number;
   total: number;
 };
 
@@ -64,6 +98,12 @@ export type Booking = {
   message: string | null;
   dayTotal: number;
   cleaningFee: number;
+  setupOption: SetupOption;
+  setupFee: number;
+  /** The day held for setting up, or null when none was bought. */
+  setupDate: IsoDate | null;
+  discountPercent: number;
+  discountAmount: number;
   total: number;
   cancelledAt: string | null;
   cancelReason: string | null;
@@ -83,6 +123,8 @@ export type BookingRequest = {
   startDate: IsoDate;
   endDate: IsoDate;
   guests: number;
+  /** Defaults to NONE when the guest does not want the day before. */
+  setupOption?: SetupOption;
   firstName: string;
   lastName: string;
   email: string;
@@ -148,10 +190,43 @@ export function getAvailability(slug: string, from: IsoDate, to: IsoDate) {
   );
 }
 
-export function getQuote(slug: string, from: IsoDate, to: IsoDate) {
-  return request<Quote & { space: string }>(
-    `/pricing/quote?space=${slug}&from=${from}&to=${to}`,
-  );
+/**
+ * Posted rather than fetched so the booker's email stays in the body. An email
+ * in a query string would end up in access logs, browser history and referrer
+ * headers; the price is the same either way.
+ */
+export function getQuote(
+  slug: string,
+  from: IsoDate,
+  to: IsoDate,
+  setup: SetupOption = "NONE",
+  email?: string,
+) {
+  return request<Quote & { space: string }>("/pricing/quote", {
+    method: "POST",
+    body: JSON.stringify({
+      space: slug,
+      from,
+      to,
+      setup,
+      ...(email ? { email } : {}),
+    }),
+  });
+}
+
+/** The configured price for an option, for labelling the choice. */
+export function setupFeeFor(space: Space, option: SetupOption): number {
+  if (option === "FULL_DAY") return space.setupFullDayFee;
+  if (option === "HALF_DAY") return space.setupHalfDayFee;
+  return 0;
+}
+
+/** The day an option would hold: the one directly before the rental starts. */
+export function setupDateFor(option: SetupOption, start: IsoDate): IsoDate | null {
+  if (option === "NONE") return null;
+  const date = new Date(`${start}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 }
 
 export function createBooking(payload: BookingRequest) {
