@@ -1,5 +1,7 @@
 import { BookingStatus, PaymentStatus } from '@cabin/database';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsOptional,
@@ -14,6 +16,19 @@ const MESSAGE = 'må være en dato på formen ÅÅÅÅ-MM-DD';
 
 /** Changes an administrator can make from the dashboard. */
 export class UpdateBookingDto {
+  /** Overrides the shared utleier details for this agreement only. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  landlordName?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(6)
+  @IsString({ each: true })
+  @MaxLength(120, { each: true })
+  landlordLines?: string[];
+
   @IsOptional()
   @IsEnum(BookingStatus, { message: 'Ukjent status' })
   status?: BookingStatus;

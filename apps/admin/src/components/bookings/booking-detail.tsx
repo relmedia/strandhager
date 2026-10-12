@@ -2,23 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
   Ban,
-  Building2,
   Check,
   CircleSlash,
   Copy,
-  Mail,
   PartyPopper,
   Pencil,
-  Phone,
   Printer,
   RotateCcw,
   Undo2,
-  User,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,7 +29,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-import { ConfirmDelete } from "@/components/cms/confirm-delete";
 import { BookingDocument } from "@/components/bookings/booking-document";
 import { ReasonDialog } from "@/components/bookings/reason-dialog";
 import {
@@ -57,14 +51,13 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useBooking } from "@/hooks/use-bookings";
-import { deleteBooking, refundBooking } from "@/lib/booking";
+import { refundBooking, updateBooking } from "@/lib/booking";
 import { updateGuest } from "@/lib/guest";
 import { formatMoney, formatTimestamp } from "@/lib/format";
 import { WEB_URL } from "@/lib/media";
 import type { Booking, BookingStatus, BookingUpdate } from "@/types/booking";
 
 export function BookingDetail({ id, adminName }: { id: string; adminName: string }) {
-  const router = useRouter();
   const { data, loading, error, saving, save, reload } = useBooking(id);
 
   async function apply(patch: BookingUpdate, success: string) {
@@ -74,16 +67,6 @@ export function BookingDetail({ id, adminName }: { id: string; adminName: string
       return;
     }
     toast.success(success);
-  }
-
-  async function remove() {
-    try {
-      await deleteBooking(id);
-      toast.success("Bookingen er slettet");
-      router.push("/bokningar");
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Klarte ikke å slette");
-    }
   }
 
   if (loading) {
@@ -139,7 +122,12 @@ export function BookingDetail({ id, adminName }: { id: string; adminName: string
 
       <div className="grid gap-4 lg:grid-cols-3 print:block">
         <div className="space-y-4 lg:col-span-2">
-          <BookingDocument booking={data} />
+          <BookingDocument
+            booking={data}
+            editLandlord={<EditLandlord booking={data} onSaved={() => void reload()} />}
+            editTenant={<EditContact booking={data} onSaved={() => void reload()} />}
+            editStay={<EditStay booking={data} onSaved={() => void reload()} />}
+          />
 
           {data.cancelledAt ? (
             <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 print:hidden">
@@ -161,39 +149,7 @@ export function BookingDetail({ id, adminName }: { id: string; adminName: string
 
         <div className="space-y-4 print:hidden">
           <section className="space-y-3 rounded-lg border p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">Kontakt</h2>
-              <EditContact booking={data} onSaved={() => void reload()} />
-            </div>
-
-            <p className="flex items-center gap-2 text-sm">
-              <User className="size-4 text-muted-foreground" />
-              {data.guest.firstName} {data.guest.lastName}
-            </p>
-
-            <ContactLink
-              href={`mailto:${data.guest.email}`}
-              icon={<Mail className="size-4" />}
-            >
-              {data.guest.email}
-            </ContactLink>
-
-            {data.guest.phone ? (
-              <ContactLink
-                href={`tel:${data.guest.phone.replace(/\s/g, "")}`}
-                icon={<Phone className="size-4" />}
-              >
-                {data.guest.phone}
-              </ContactLink>
-            ) : null}
-
-            {data.guest.company ? (
-              <p className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Building2 className="size-4" />
-                {data.guest.company}
-              </p>
-            ) : null}
-
+            <h2 className="font-medium">Gjestens lenke</h2>
             <GuestLink booking={data} />
           </section>
 
@@ -243,19 +199,6 @@ export function BookingDetail({ id, adminName }: { id: string; adminName: string
             ) : null}
           </section>
 
-          <section className="space-y-3 rounded-lg border border-destructive/30 p-5">
-            <h2 className="font-medium">Slett bookingen</h2>
-            <p className="text-muted-foreground text-sm">
-              Fjerner den for godt. Vil du bare frigjøre datoene, avbestill i stedet.
-            </p>
-            <ConfirmDelete
-              label="Slett booking"
-              title="Slette bookingen?"
-              description={`Bookingen ${data.reference} for ${data.guest.firstName} ${data.guest.lastName} slettes for godt. Dette kan ikke angres.`}
-              confirmLabel="Slett"
-              onConfirm={remove}
-            />
-          </section>
         </div>
       </div>
     </div>
@@ -351,6 +294,244 @@ function StatusActions({
  * changes are saved on the guest record, so they apply to all their bookings
  * and to the guest register.
  */
+/**
+ * The pen on the rental facts: the dates and how many people are coming.
+ *
+ * Days are not edited directly, because days are however many the range spans.
+ * The server re-prices per weekday, moves any rigging day along with the start
+ * date, and refuses dates that clash with another booking, so this form only
+ * has to collect them.
+ */
+function EditStay({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => initialForm(booking));
+
+  function initialForm(source: Booking) {
+    return {
+      startDate: source.startDate,
+      endDate: source.endDate,
+      guests: String(source.guests),
+    };
+  }
+
+  function openChange(next: boolean) {
+    // Start from the booking each time, discarding any abandoned edit.
+    if (next) setForm(initialForm(booking));
+    setOpen(next);
+  }
+
+  const days =
+    form.startDate && form.endDate
+      ? Math.round(
+          (Date.parse(`${form.endDate}T00:00:00Z`) -
+            Date.parse(`${form.startDate}T00:00:00Z`)) /
+            86_400_000,
+        ) + 1
+      : 0;
+
+  const guests = Number.parseInt(form.guests, 10);
+  const valid = days >= 1 && Number.isInteger(guests) && guests >= 1;
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!valid) return;
+    setSaving(true);
+    try {
+      await updateBooking(booking.id, {
+        startDate: form.startDate,
+        endDate: form.endDate,
+        guests,
+      });
+      toast.success("Leien er oppdatert");
+      setOpen(false);
+      onSaved();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Klarte ikke å lagre endringene");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={openChange}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Endre datoer og antall gjester">
+          <Pencil className="size-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Endre leien</DialogTitle>
+          <DialogDescription>
+            Prisen regnes ut på nytt etter dagsatsene, og datoene avvises hvis de
+            krasjer med en annen booking.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="stay-from">Fra</Label>
+              <Input
+                id="stay-from"
+                type="date"
+                value={form.startDate}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, startDate: event.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="stay-to">Til</Label>
+              <Input
+                id="stay-to"
+                type="date"
+                min={form.startDate}
+                value={form.endDate}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, endDate: event.target.value }))
+                }
+                required
+              />
+            </div>
+          </div>
+
+          <p className="text-muted-foreground text-sm">
+            {days >= 1
+              ? `Antall dager: ${days}`
+              : "Til-datoen kan ikke være før fra-datoen."}
+          </p>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="stay-guests">Antall gjester</Label>
+            <Input
+              id="stay-guests"
+              inputMode="numeric"
+              value={form.guests}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  guests: event.target.value.replace(/\D/g, "").slice(0, 4),
+                }))
+              }
+              className="w-28 tabular-nums"
+              required
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={saving || !valid}>
+              {saving ? "Lagrer …" : "Lagre"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The pen on Utleier: who this particular agreement names as the letting party.
+ * Saved on the booking rather than globally, so correcting one agreement leaves
+ * every other one - including ones already signed - exactly as it was.
+ */
+function EditLandlord({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => initialForm(booking));
+
+  function initialForm(source: Booking) {
+    return {
+      name: source.landlord.name,
+      // One contact detail per line: simpler to edit than a row of fields, and
+      // it matches how the agreement prints them.
+      lines: source.landlord.lines.join("\n"),
+    };
+  }
+
+  function openChange(next: boolean) {
+    if (next) setForm(initialForm(booking));
+    setOpen(next);
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await updateBooking(booking.id, {
+        landlordName: form.name.trim(),
+        landlordLines: form.lines
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean),
+      });
+      toast.success("Utleier er oppdatert på denne avtalen");
+      setOpen(false);
+      onSaved();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Klarte ikke å lagre endringene");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={openChange}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Endre utleier">
+          <Pencil className="size-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Endre utleier</DialogTitle>
+          <DialogDescription>
+            Gjelder bare denne avtalen. Andre bookinger beholder det som står der
+            fra før.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="landlord-name">Navn</Label>
+            <Input
+              id="landlord-name"
+              value={form.name}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, name: event.target.value }))
+              }
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="landlord-lines">Kontaktlinjer</Label>
+            <Textarea
+              id="landlord-lines"
+              rows={3}
+              value={form.lines}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, lines: event.target.value }))
+              }
+            />
+            <p className="text-muted-foreground text-xs">
+              Én per linje, for eksempel e-post og telefon.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Lagrer …" : "Lagre"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function EditContact({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -631,9 +812,9 @@ function GuestLink({ booking }: { booking: Booking }) {
   }
 
   return (
-    <div className="space-y-2 border-t pt-3">
+    <div className="space-y-2">
       <p className="text-muted-foreground text-xs">
-        Gjestens egen lenke. Der kan de se og avbestille bookingen selv.
+        Her kan gjesten se og avbestille bookingen selv.
       </p>
       <div className="flex gap-2">
         <input
@@ -660,25 +841,6 @@ function Line({ label, amount }: { label: string; amount: number }) {
   );
 }
 
-function ContactLink({
-  href,
-  icon,
-  children,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      className="flex items-center gap-2 text-sm underline-offset-4 hover:underline"
-    >
-      <span className="text-muted-foreground">{icon}</span>
-      {children}
-    </a>
-  );
-}
 
 function BackLink() {
   return (

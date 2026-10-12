@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { formatFullDate, formatMoney, formatTimestamp } from "@/lib/format";
 import type { Booking } from "@/types/booking";
 
@@ -9,7 +11,18 @@ import type { Booking } from "@/types/booking";
  * printed or archived as-is. Deliberately white in dark mode too: it is a
  * sheet of paper, not a dashboard panel.
  */
-export function BookingDocument({ booking }: { booking: Booking }) {
+export function BookingDocument({
+  booking,
+  editLandlord,
+  editTenant,
+  editStay,
+}: {
+  booking: Booking;
+  /** Pens rendered inside the agreement; all are hidden when printing. */
+  editLandlord?: ReactNode;
+  editTenant?: ReactNode;
+  editStay?: ReactNode;
+}) {
   const guestName = `${booking.guest.firstName} ${booking.guest.lastName}`;
 
   return (
@@ -40,11 +53,7 @@ export function BookingDocument({ booking }: { booking: Booking }) {
         <section>
           <DocHeading>1. Partene</DocHeading>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <Party
-              label="Utleier"
-              name="Ølberg strandhager ved hagestyret"
-              lines={["felleshuset@strandhager.no", "957 82 508"]}
-            />
+            <Party label="Utleier" name={booking.landlord.name} lines={booking.landlord.lines} action={editLandlord} />
             <Party
               label="Leietaker"
               name={guestName}
@@ -53,12 +62,16 @@ export function BookingDocument({ booking }: { booking: Booking }) {
                   Boolean,
                 ) as string[]
               }
+              action={editTenant}
             />
           </div>
         </section>
 
         <section>
-          <DocHeading>2. Leien</DocHeading>
+          <div className="flex items-center justify-between gap-2">
+            <DocHeading>2. Leien</DocHeading>
+            {editStay ? <span className="print:hidden">{editStay}</span> : null}
+          </div>
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
             <Fact label="Lokale">{booking.space.name}</Fact>
             <Fact label="Fra">{formatFullDate(booking.startDate)}</Fact>
@@ -186,12 +199,26 @@ function DocHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Party({ label, name, lines }: { label: string; name: string; lines: string[] }) {
+function Party({
+  label,
+  name,
+  lines,
+  action,
+}: {
+  label: string;
+  name: string;
+  lines: string[];
+  /** Edit control, kept off the printed sheet. */
+  action?: ReactNode;
+}) {
   return (
     <div className="rounded-md border border-neutral-200 p-3.5">
-      <p className="font-medium text-neutral-500 text-xs tracking-[0.14em] uppercase">
-        {label}
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-medium text-neutral-500 text-xs tracking-[0.14em] uppercase">
+          {label}
+        </p>
+        {action ? <span className="-mt-1.5 -mr-1.5 print:hidden">{action}</span> : null}
+      </div>
       <p className="mt-1.5 font-medium text-sm">{name}</p>
       {lines.map((line) => (
         <p key={line} className="mt-0.5 text-neutral-600 text-sm">

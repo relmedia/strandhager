@@ -1,7 +1,10 @@
 import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
 import { PricingService } from './pricing.service';
 import { QuotePriceBodyDto, QuotePriceDto } from './dto/quote-price.dto';
+import { Public } from '../auth/public.decorator';
 
+/** Public: the price box on the website. */
+@Public()
 @Controller('pricing')
 export class PricingController {
   constructor(private readonly pricing: PricingService) {}

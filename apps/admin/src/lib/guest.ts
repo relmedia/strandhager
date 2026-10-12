@@ -17,6 +17,14 @@ export type GuestUpdate = {
   company?: string;
 };
 
+/**
+ * Removes a guest. The API refuses when they have bookings, since a booking
+ * cannot exist without its guest — the message explains that.
+ */
+export function deleteGuest(id: string) {
+  return apiFetch<{ id: string; deleted: true }>(`/guests/${id}`, { method: "DELETE" });
+}
+
 export function updateGuest(id: string, patch: GuestUpdate) {
   return apiFetch<GuestRow>(`/guests/${id}`, {
     method: "PATCH",

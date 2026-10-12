@@ -35,6 +35,8 @@ export type AgreementData = {
   total: number;
   /** The guest's drawn signature as a data URL, when they signed. */
   signature: string | null;
+  /** Utleier for this agreement; already resolved against the shared default. */
+  landlord?: { name: string; lines: string[] };
   termsAcceptedAt: Date | null;
   confirmedAt: Date;
   confirmedByName: string | null;
@@ -56,10 +58,9 @@ const MUTED = rgb(0.45, 0.45, 0.45);
 const LINE = rgb(0.898, 0.898, 0.898);
 const FOOT_BG = rgb(0.98, 0.98, 0.98);
 
-const LANDLORD = {
-  name: 'Ølberg strandhager ved hagestyret',
-  lines: ['felleshuset@strandhager.no', '957 82 508'],
-};
+// Re-exported from the bookings module so the PDF and the dashboard cannot
+// drift apart on who the letting party is.
+import { DEFAULT_LANDLORD } from '../bookings/landlord';
 
 export async function renderAgreementPdf(data: AgreementData): Promise<Buffer> {
   const doc = await PDFDocument.create();
@@ -84,7 +85,11 @@ export async function renderAgreementPdf(data: AgreementData): Promise<Buffer> {
   // 1. Partene ------------------------------------------------------------
   writer.sectionHeading('1. Partene');
   writer.parties(
-    { label: 'Utleier', name: LANDLORD.name, lines: LANDLORD.lines },
+    {
+      label: 'Utleier',
+      name: (data.landlord ?? DEFAULT_LANDLORD).name,
+      lines: (data.landlord ?? DEFAULT_LANDLORD).lines,
+    },
     {
       label: 'Leietaker',
       name: data.guestName,
@@ -168,7 +173,7 @@ export async function renderAgreementPdf(data: AgreementData): Promise<Buffer> {
     },
     landlord: {
       signedBy: data.confirmedByName,
-      name: LANDLORD.name,
+      name: (data.landlord ?? DEFAULT_LANDLORD).name,
       note: `Bekreftet elektronisk ${formatTimestamp(data.confirmedAt)}`,
     },
   });

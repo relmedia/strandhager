@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { ThrottleModule } from './common/throttle.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { BlackoutsModule } from './blackouts/blackouts.module';
 import { BookingsModule } from './bookings/bookings.module';
@@ -25,6 +28,7 @@ import { SpacesModule } from './spaces/spaces.module';
       envFilePath: ['.env', '../../.env'],
     }),
     PrismaModule,
+    ThrottleModule,
     HealthModule,
     AuthModule,
     CabinsModule,
@@ -41,6 +45,12 @@ import { SpacesModule } from './spaces/spaces.module';
     MediaModule,
     NotificationsModule,
     ContactModule,
+  ],
+  providers: [
+    // Closed by default: every route needs a dashboard token unless it is
+    // marked @Public(). A new controller is therefore protected from the
+    // moment it exists, rather than from the moment someone remembers.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}

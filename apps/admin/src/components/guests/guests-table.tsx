@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
   type ColumnDef,
@@ -13,8 +14,10 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ArrowUpRight } from "lucide-react";
+import { ArrowUpDown, ArrowUpRight, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
+import { ConfirmDelete } from "@/components/cms/confirm-delete";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateRange, formatMoney } from "@/lib/format";
+import { deleteGuest } from "@/lib/guest";
 import { getInitials } from "@/lib/utils";
 import type { GuestRow } from "@/types/guest";
 
@@ -50,8 +54,24 @@ function sortableHeader(label: string, align?: "right") {
 }
 
 export function GuestsTable({ guests }: { guests: GuestRow[] }) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [filter, setFilter] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function remove(guest: GuestRow) {
+    setDeleting(guest.id);
+    try {
+      await deleteGuest(guest.id);
+      toast.success(`${guest.firstName} ${guest.lastName} er slettet`);
+      // The list is rendered on the server, so ask for it again.
+      router.refresh();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Klarte ikke å slette gjesten");
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   const columns = useMemo<ColumnDef<GuestRow>[]>(
     () => [
@@ -125,20 +145,56 @@ export function GuestsTable({ guests }: { guests: GuestRow[] }) {
       },
       {
         id: "open",
-        cell: ({ row }) => (
-          <div className="text-right">
-            <Link
-              href={`/gaster/${row.original.id}`}
-              aria-label={`Åpne gjest ${row.original.firstName} ${row.original.lastName}`}
-              className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <ArrowUpRight className="size-4" />
-            </Link>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const guest = row.original;
+          const name = `${guest.firstName} ${guest.lastName}`;
+          // A booking cannot exist without its guest, so someone who has booked
+          // is not deletable. Shown as a disabled control with the reason,
+          // rather than a button that always fails.
+          const held = guest.bookingCount > 0;
+
+          return (
+            <div className="flex items-center justify-end gap-0.5">
+              <Link
+                href={`/gaster/${guest.id}`}
+                aria-label={`Åpne gjest ${name}`}
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <ArrowUpRight className="size-4" />
+              </Link>
+
+              {held ? (
+                <span
+                  className="inline-flex size-8 cursor-not-allowed items-center justify-center rounded-md text-muted-foreground/40"
+                  title={`${name} har ${guest.bookingCount} ${
+                    guest.bookingCount === 1 ? "booking" : "bookinger"
+                  } og kan ikke slettes. Slett bookingene først.`}
+                  aria-label={`${name} kan ikke slettes fordi gjesten har bookinger`}
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                </span>
+              ) : (
+                <ConfirmDelete
+                  label={`Slett gjest ${name}`}
+                  title="Slette gjesten?"
+                  confirmLabel={deleting === guest.id ? "Sletter …" : "Slett"}
+                  description={
+                    <>
+                      {name} · {guest.email}
+                      <br />
+                      Gjesten har ingen bookinger, så ingenting annet forsvinner
+                      med dem. De dukker opp igjen hvis de booker på nytt.
+                    </>
+                  }
+                  onConfirm={() => void remove(guest)}
+                />
+              )}
+            </div>
+          );
+        },
       },
     ],
-    [],
+    [deleting],
   );
 
   const table = useReactTable({
@@ -175,7 +231,7 @@ export function GuestsTable({ guests }: { guests: GuestRow[] }) {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className={header.id === "open" ? "w-12" : undefined}>
+                  <TableHead key={header.id} className={header.id === "open" ? "w-20" : undefined}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}

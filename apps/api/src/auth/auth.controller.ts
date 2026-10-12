@@ -17,17 +17,22 @@ import {
   SetTwoFactorDto,
   VerifyCodeDto,
 } from './dto/login.dto';
+import { Public } from './public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  /** Public: the password check that issues the token in the first place. */
+  @Public()
   @UseGuards(AuthGuard('local'))
   @Post('login')
   login(@Request() req: { user: { id: string; email: string; name: string } }) {
     return this.authService.login(req.user);
   }
 
+  /** Public: second step of login, before any token exists. */
+  @Public()
   @Post('verify')
   verify(@Body() dto: VerifyCodeDto) {
     return this.authService.verifyCode(dto.challengeId, dto.code);

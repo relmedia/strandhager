@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { SpacesService } from './spaces.service';
 import { UpdateSpaceDto } from './dto/update-space.dto';
+import { Public } from '../auth/public.decorator';
 
 @Controller('spaces')
 export class SpacesController {
@@ -11,6 +12,8 @@ export class SpacesController {
     return this.spaces.findAll();
   }
 
+  /** Public: the booking panel's configuration. */
+  @Public()
   @Get(':slug')
   findOne(@Param('slug') slug: string) {
     return this.spaces.publicView(slug);

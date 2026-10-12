@@ -163,6 +163,12 @@ model Booking {
   discountAmount  Int @default(0)
   total       Int
 
+  /// Utleier as it appears on this agreement. Snapshotted per booking so that
+  /// correcting one never rewrites an agreement somebody has already signed.
+  /// Empty means "use the shared default".
+  landlordName  String?
+  landlordLines String[]
+
   /// Whether the guest bought the day before for setting up, and which half.
   setupOption SetupOption @default(NONE)
   /// First day this booking holds: the setup day when one was bought,
@@ -401,6 +407,11 @@ model AdminUser {
   passwordHash String
   /// Set for invited users with a temporary password; cleared when they pick their own.
   mustChangePassword Boolean @default(false)
+  /// When the password was last changed. Tokens issued before this moment are
+  /// refused, so changing a password after a compromise actually ends the
+  /// intruder's session instead of leaving it live for the token's 30 days.
+  /// Null for accounts whose password has never been changed.
+  passwordChangedAt DateTime?
   /// When on, logging in also requires a one-time code sent by e-mail.
   /// Off by default; each user turns it on for their own account under
   /// Innstillinger → Din konto.
@@ -410,6 +421,54 @@ model AdminUser {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Failed sign-in attempts against one e-mail address, used to slow down
+/// guessing. Keyed by the address as typed rather than by a relation, because
+/// attempts against addresses that do not exist have to be counted too —
+/// otherwise the lockout itself would reveal which admins are real.
+///
+/// Held in the database rather than in memory because the API runs on
+/// serverless functions: anything kept in process is lost between invocations,
+/// which would make a counter useless.
+model LoginAttempt {
+  id String @id @default(cuid())
+
+  /// Lower-cased, trimmed.
+  email String @unique
+
+  /// Consecutive failures. Cleared by a correct password, or by going quiet.
+  failures Int @default(0)
+  /// While this is in the future, the password is not even checked.
+  lockedUntil  DateTime?
+  lastFailedAt DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lockedUntil])
+}
+
+/// A fixed-window counter for requests from one source to one endpoint, used to
+/// keep the public forms from being used as a spam cannon.
+///
+/// In the database for the same reason as LoginAttempt: the API runs on
+/// serverless functions, so an in-process counter is lost between invocations.
+model RequestThrottle {
+  id String @id @default(cuid())
+
+  /// "<bucket>:<client>", e.g. "contact:203.0.113.9".
+  key String @unique
+
+  /// Requests seen since the window opened.
+  count Int @default(0)
+  /// When the current window began; a request after it closes starts a new one.
+  windowStartedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([windowStartedAt])
 }
 
 /// A half-finished login: the password was right, and now we are waiting for

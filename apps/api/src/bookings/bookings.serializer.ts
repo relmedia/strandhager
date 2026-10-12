@@ -1,5 +1,6 @@
 import type { Booking, Guest, Space } from '@cabin/database';
 import { daysBetween, toIsoDate } from '../common/dates';
+import { landlordFor } from './landlord';
 
 export type BookingRecord = Booking & {
   space: Pick<Space, 'slug' | 'name'>;
@@ -37,6 +38,9 @@ export function toAdminView(booking: BookingRecord) {
         : toIsoDate(booking.blockedFrom),
     discountPercent: booking.discountPercent,
     discountAmount: booking.discountAmount,
+    // Already resolved against the shared default, so nothing downstream has
+    // to know the fallback exists.
+    landlord: landlordFor(booking),
     total: booking.total,
     cancelledAt: booking.cancelledAt?.toISOString() ?? null,
     cancelledBy: booking.cancelledBy,

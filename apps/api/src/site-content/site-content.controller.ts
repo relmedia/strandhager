@@ -7,6 +7,7 @@ import {
   Put,
 } from '@nestjs/common';
 import { SiteContentService } from './site-content.service';
+import { Public } from '../auth/public.decorator';
 
 const SECTION_KEYS = [
   'general',
@@ -24,11 +25,15 @@ const SECTION_KEYS = [
 export class SiteContentController {
   constructor(private readonly siteContent: SiteContentService) {}
 
+  /** Public: the website's own copy. */
+  @Public()
   @Get()
   findAll() {
     return this.siteContent.findAll();
   }
 
+  /** Public: one section, e.g. the galleries. */
+  @Public()
   @Get(':key')
   findOne(@Param('key') key: string) {
     return this.siteContent.findOne(key);

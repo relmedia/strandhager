@@ -13,6 +13,7 @@ import {
 import type { Request } from 'express';
 
 import { PaymentsService } from './payments.service';
+import { Public } from '../auth/public.decorator';
 
 @Controller('payments')
 export class PaymentsController {
@@ -31,6 +32,9 @@ export class PaymentsController {
    * Webhooks API and put the returned secret in VIPPS_WEBHOOK_SECRET so the
    * signature can be checked.
    */
+  /** Public: Vipps posts here. Authenticated by its HMAC signature, not a
+   *  login, which is why the raw body is kept. */
+  @Public()
   @Post('vipps/webhook')
   @HttpCode(200)
   async vippsWebhook(

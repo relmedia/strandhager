@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -11,9 +12,26 @@ import * as bcrypt from 'bcryptjs';
 
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  describeWait,
+  hasGoneQuiet,
+  lockoutMsFor,
+  secondsRemaining,
+} from './login-throttle';
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
+
+/**
+ * Compared against when no account matches the address, so that a missing
+ * account costs the same time as a wrong password. Without it, bcrypt runs only
+ * for addresses that exist, and the difference — immediate versus roughly a
+ * tenth of a second — is enough to sort real admin addresses from guesses.
+ *
+ * A fixed hash of a value nothing can equal; it is not a secret.
+ */
+const ABSENT_ACCOUNT_HASH =
+  '$2b$10$U9sxLVWGcJ25FpY.jC5MXudfZLXIfSUZ/1Qm1ASUxPFOsY2CS0oMm';
 
 type PublicUser = { id: string; email: string; name: string };
 
@@ -28,15 +46,77 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string): Promise<PublicUser | null> {
-    const user = await this.prisma.adminUser.findUnique({
-      where: { email: email.trim().toLowerCase() },
-    });
-    if (!user) return null;
+    const address = email.trim().toLowerCase();
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return null;
+    await this.assertNotPaused(address);
 
+    const user = await this.prisma.adminUser.findUnique({ where: { email: address } });
+
+    // Always compare, even with nothing to compare against: see
+    // ABSENT_ACCOUNT_HASH. Checking `user` first would hand out the answer in
+    // the response time.
+    const ok = await bcrypt.compare(password, user?.passwordHash ?? ABSENT_ACCOUNT_HASH);
+
+    if (!user || !ok) {
+      await this.recordFailedLogin(address);
+      return null;
+    }
+
+    await this.forgetFailedLogins(address);
     return { id: user.id, email: user.email, name: user.name };
+  }
+
+  /**
+   * Refuses to even check the password while a pause is running.
+   *
+   * Counted against the address as typed, including addresses that do not
+   * exist, so the pause cannot be used to tell real admins from invented ones.
+   */
+  private async assertNotPaused(address: string) {
+    const record = await this.prisma.loginAttempt.findUnique({
+      where: { email: address },
+    });
+    if (!record) return;
+
+    const left = secondsRemaining(record.lockedUntil);
+    if (left > 0) {
+      throw new UnauthorizedException(
+        `For mange mislykkede forsøk. Prøv igjen om ${describeWait(left)}.`,
+      );
+    }
+  }
+
+  private async recordFailedLogin(address: string) {
+    const now = new Date();
+    const previous = await this.prisma.loginAttempt.findUnique({
+      where: { email: address },
+    });
+
+    // A long enough gap starts the count over, so someone who mistypes once a
+    // month never creeps up the ladder.
+    const priorFailures =
+      previous && !hasGoneQuiet(previous.lastFailedAt, now) ? previous.failures : 0;
+
+    const failures = priorFailures + 1;
+    const pause = lockoutMsFor(failures);
+    const lockedUntil = pause > 0 ? new Date(now.getTime() + pause) : null;
+
+    await this.prisma.loginAttempt.upsert({
+      where: { email: address },
+      create: { email: address, failures, lockedUntil, lastFailedAt: now },
+      update: { failures, lockedUntil, lastFailedAt: now },
+    });
+
+    if (pause > 0) {
+      this.logger.warn(
+        `${failures} mislykkede innlogginger for ${address}; pause i ${pause / 1000} sekunder`,
+      );
+    }
+  }
+
+  /** A correct password wipes the slate. */
+  private async forgetFailedLogins(address: string) {
+    await this.prisma.loginAttempt.deleteMany({ where: { email: address } });
   }
 
   /**
@@ -83,8 +163,20 @@ export class AuthService {
       return { challengeId: challenge.id, emailed: true };
     }
 
-    // No Resend key yet: return the code so a first admin is not locked out.
     if (!mail.configured) {
+      // Handing the code back in the response is a development convenience so
+      // a first admin is not locked out before e-mail is set up. In production
+      // it would undo two-factor entirely — whoever asked for the code would be
+      // given it — so there it is a failure instead.
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error(
+          `E-post er ikke satt opp, så innloggingskoden til ${user.email} kunne ikke sendes.`,
+        );
+        throw new ServiceUnavailableException(
+          'Innloggingskoden kunne ikke sendes fordi e-post ikke er satt opp. Kontakt en administrator.',
+        );
+      }
+
       this.logger.warn(
         `E-post er ikke satt opp — innloggingskode for ${user.email}: ${code}`,
       );
@@ -260,6 +352,10 @@ export class AuthService {
       data: {
         passwordHash: await bcrypt.hash(newPassword, 10),
         mustChangePassword: false,
+        // Stamps every token issued before now as dead. The fresh one handed
+        // back below is signed after this, so the person changing their own
+        // password stays logged in while anyone else holding a token does not.
+        passwordChangedAt: new Date(),
       },
     });
 

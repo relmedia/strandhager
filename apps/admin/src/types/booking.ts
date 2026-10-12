@@ -33,6 +33,8 @@ export type Booking = {
   /** The parsellant discount as it stood when the booking was made. */
   discountPercent: number;
   discountAmount: number;
+  /** Utleier on this agreement, already resolved against the shared default. */
+  landlord: { name: string; lines: string[] };
   total: number;
   cancelledAt: string | null;
   cancelledBy: "GUEST" | "ADMIN" | null;
@@ -132,4 +134,7 @@ export type BookingUpdate = {
   cancelReason?: string;
   /** Sent along when confirming, recorded as the utleier's electronic signature. */
   confirmedByName?: string;
+  /** Overrides utleier on this agreement only. */
+  landlordName?: string;
+  landlordLines?: string[];
 };

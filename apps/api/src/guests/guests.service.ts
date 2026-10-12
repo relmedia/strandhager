@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BookingStatus } from '@cabin/database';
 
 import { toIsoDate } from '../common/dates';
@@ -52,6 +52,35 @@ export class GuestsService {
   }
 
   /** One guest with their full booking history for the detail page. */
+  /**
+   * Removes a guest, provided nothing is hanging off them.
+   *
+   * A booking cannot exist without its guest — the relation is required — so a
+   * guest who has ever booked is refused rather than cascaded. Deleting them
+   * would either take real booking history with them or fail on a foreign key
+   * somewhere less helpful than here.
+   */
+  async remove(id: string) {
+    const guest = await this.prisma.guest.findUnique({
+      where: { id },
+      select: { id: true, firstName: true, lastName: true, _count: { select: { bookings: true } } },
+    });
+
+    if (!guest) {
+      throw new NotFoundException('Fant ingen gjest med denne id-en');
+    }
+
+    if (guest._count.bookings > 0) {
+      const count = guest._count.bookings;
+      throw new BadRequestException(
+        `${guest.firstName} ${guest.lastName} har ${count} ${count === 1 ? 'booking' : 'bookinger'} og kan ikke slettes. Slett bookingene først hvis gjesten skal fjernes.`,
+      );
+    }
+
+    await this.prisma.guest.delete({ where: { id } });
+    return { id, deleted: true };
+  }
+
   async findOne(id: string) {
     const guest = await this.prisma.guest.findUnique({
       where: { id },

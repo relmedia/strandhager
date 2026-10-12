@@ -151,7 +151,7 @@ export function BookingsList({
       ) : data.length === 0 ? (
         <Empty search={search} status={status} />
       ) : (
-        <BookingsTable bookings={data} />
+        <BookingsTable bookings={data} onDeleted={() => void reload()} />
       )}
     </div>
   );

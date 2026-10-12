@@ -21,6 +21,7 @@ import {
   unpricedWeekdays,
   type SetupOption,
 } from '../pricing/quote';
+import { landlordFor } from './landlord';
 import {
   addDays,
   daysBetween,
@@ -429,7 +430,25 @@ export class BookingsService {
 
     const data: Prisma.BookingUpdateInput = {};
 
-    if (dto.guests !== undefined) data.guests = dto.guests;
+    if (dto.guests !== undefined) {
+      // The create path checks this; the dashboard never did, so a booking
+      // could be edited to seat more people than the room holds.
+      if (dto.guests > existing.space.maxGuests) {
+        throw new BadRequestException(
+          `${existing.space.name} har plass til inntil ${existing.space.maxGuests} personer`,
+        );
+      }
+      data.guests = dto.guests;
+    }
+
+    if (dto.landlordName !== undefined) {
+      data.landlordName = dto.landlordName.trim() || null;
+    }
+    if (dto.landlordLines !== undefined) {
+      data.landlordLines = dto.landlordLines
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    }
     if (dto.purpose !== undefined) data.purpose = dto.purpose;
     if (dto.notes !== undefined) data.notes = dto.notes;
     if (dto.paymentStatus !== undefined) data.paymentStatus = dto.paymentStatus;
@@ -564,6 +583,7 @@ export class BookingsService {
         cleaningFee: booking.cleaningFee,
         total: booking.total,
         signature: booking.signature,
+        landlord: landlordFor(booking),
         termsAcceptedAt: booking.termsAcceptedAt,
         confirmedAt: booking.confirmedAt ?? new Date(),
         confirmedByName: booking.confirmedByName,
