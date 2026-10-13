@@ -162,6 +162,9 @@ export function ParcelsBoard() {
         onSave={(id, patch) => void save(id, patch)}
         onDelete={(parcel) => void remove(parcel)}
         onHistoryChanged={() => void parcels.reload()}
+        // The document calls return the updated plot, but reloading keeps the
+        // board and the map reading from one source rather than two.
+        onDocumentsChanged={() => void parcels.reload()}
       />
     </div>
   );

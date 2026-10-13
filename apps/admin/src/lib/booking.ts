@@ -82,6 +82,26 @@ export function updateBooking(id: string, patch: BookingUpdate) {
   });
 }
 
+export type OrgSettings = {
+  landlord: { name: string; lines: string[] };
+  updatedAt: string;
+};
+
+/** Organisation settings. Dashboard only — the API guards these routes. */
+export function getOrgSettings() {
+  return apiFetch<OrgSettings>("/settings/organisation", { cache: "no-store" });
+}
+
+export function updateOrgSettings(patch: {
+  landlordName?: string;
+  landlordLines?: string[];
+}) {
+  return apiFetch<OrgSettings>("/settings/organisation", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
 export function deleteBooking(id: string) {
   return apiFetch<{ id: string }>(`/bookings/${id}`, { method: "DELETE" });
 }

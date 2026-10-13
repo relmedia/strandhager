@@ -232,6 +232,23 @@ enum PaymentStatus {
   REFUNDED
 }
 
+/// Organisation-level settings, as one row with a fixed id. Kept out of
+/// SiteSection because that store is served to the public website wholesale,
+/// and settings should not become public by default.
+model OrgSettings {
+  /// Always "default"; there is one association.
+  id String @id @default("default")
+
+  /// Who new rental agreements name as the letting party. Copied onto each
+  /// booking as it is created, so changing this never rewrites an agreement
+  /// somebody has already signed.
+  landlordName  String
+  landlordLines String[]
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
 /// One of the 47 garden plots, each with its own cabin.
 model Parcel {
   id String @id @default(cuid())
@@ -251,10 +268,33 @@ model Parcel {
   /// Everyone who has ever owned it, including whoever owns it now.
   ownerships Ownership[]
 
+  /// Drawings, contracts and anything else the board keeps on this plot.
+  documents ParcelDocument[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+}
+
+/// A file the board keeps against one plot: a drawing, a signed contract, an
+/// inspection note. Only the dashboard sees these; nothing on the public site
+/// reads them.
+model ParcelDocument {
+  id String @id @default(cuid())
+
+  parcelId String
+  /// Cascaded: the papers belong to the plot, so removing the plot removes them.
+  parcel   Parcel @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+
+  /// What it is called in the list. Taken from the file name unless renamed.
+  title String
+  /// Public path under /dokumenter, exactly as the upload returned it.
+  url String
+
+  createdAt DateTime @default(now())
+
+  @@index([parcelId])
 }
 
 /// A spell of one person owning one plot. The spell without an end is the one

@@ -166,7 +166,7 @@ export function BookingDocument({
                 <div aria-hidden className="h-18" />
               )}
               <div className="border-neutral-300 border-t pt-1.5">
-                <p className="text-sm">Ølberg strandhager ved hagestyret</p>
+                <p className="text-sm">{booking.landlord.name}</p>
                 <p className="text-neutral-500 text-xs">
                   {booking.confirmedAt
                     ? `Bekreftet elektronisk ${formatTimestamp(booking.confirmedAt)}`

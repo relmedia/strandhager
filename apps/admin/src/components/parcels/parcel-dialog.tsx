@@ -26,6 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ParcelDocuments } from "@/components/parcels/parcel-documents";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { OwnershipHistory } from "@/components/parcels/ownership-history";
 import type { Parcel, ParcelUpdate, Parcellant } from "@/types/parcel";
@@ -57,6 +59,7 @@ export function ParcelDialog({
   onSave,
   onDelete,
   onHistoryChanged,
+  onDocumentsChanged,
 }: {
   /** Null closes the dialog; the parcel being edited opens it. */
   parcel: Parcel | null;
@@ -67,6 +70,9 @@ export function ParcelDialog({
   onDelete: (parcel: Parcel) => void;
   /** Editing the history can change who rents the plot, so the map must follow. */
   onHistoryChanged: () => void;
+  /** The API returns the whole plot after a document change, so the board can
+   *  refresh from it without another request. */
+  onDocumentsChanged: (parcel: Parcel) => void;
 }) {
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -111,8 +117,18 @@ export function ParcelDialog({
             <TabsTrigger value="details" className="flex-1">
               Detaljer
             </TabsTrigger>
-            <TabsTrigger value="history" className="flex-1">
+            {/* Counts shown even at zero: most plots are empty on both, and
+                hiding the badge there left the tabs looking untouched on all
+                but a couple of plots. A zero is also information - it says
+                there is nothing behind the tab without opening it. Detaljer
+                has nothing to count, so it carries no badge. */}
+            <TabsTrigger value="documents" className="flex-1 gap-1 px-2.5 sm:px-3">
+              Dokumenter
+              <Badge className="size-4 px-1 tabular-nums">{parcel.documents.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex-1 gap-1 px-2.5 sm:px-3">
               Historikk
+              <Badge className="size-4 px-1 tabular-nums">{parcel.ownershipCount}</Badge>
             </TabsTrigger>
           </TabsList>
 
@@ -195,6 +211,13 @@ export function ParcelDialog({
                 onChange={(event) => set("notes", event.target.value)}
               />
             </div>
+          </TabsContent>
+
+          <TabsContent
+            value="documents"
+            className="max-h-[60vh] overflow-y-auto pt-3 pr-1"
+          >
+            <ParcelDocuments parcel={parcel} onChanged={onDocumentsChanged} />
           </TabsContent>
 
           <TabsContent

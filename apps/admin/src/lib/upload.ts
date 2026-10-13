@@ -26,6 +26,17 @@ async function usesBlob(): Promise<boolean> {
   return blobMode;
 }
 
+/**
+ * Uploads cannot use apiFetch — it sets a JSON content type, which would break
+ * the multipart body — so they are the one place that builds its own request.
+ * They still have to go through the dashboard's proxy, because the API requires
+ * a token and the token is in an httpOnly cookie the browser will not hand to
+ * a cross-origin fetch.
+ */
+function proxied(path: string): string {
+  return `${window.location.origin}/api/proxy${path}`;
+}
+
 /** Uploads either directly to Blob (production) or through the API (dev). */
 async function send(
   file: File,
@@ -35,7 +46,7 @@ async function send(
   if (await usesBlob()) {
     const blob = await upload(`${folder}/${filename}`, file, {
       access: "public",
-      handleUploadUrl: `${API_URL}/media/client-upload`,
+      handleUploadUrl: proxied("/media/client-upload"),
     });
     return { url: blob.url };
   }
@@ -44,7 +55,7 @@ async function send(
   form.append("file", file);
 
   const response = await fetch(
-    `${API_URL}/media/upload${folder === "dokumenter" ? "?kind=document" : ""}`,
+    proxied(`/media/upload${folder === "dokumenter" ? "?kind=document" : ""}`),
     { method: "POST", body: form },
   );
 

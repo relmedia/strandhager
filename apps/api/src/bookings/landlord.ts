@@ -12,7 +12,7 @@
  * price snapshot on `Booking.dayTotal`.
  */
 export const DEFAULT_LANDLORD = {
-  name: 'Ølberg strandhager ved hagestyret',
+  name: 'Ølberg strandhager',
   lines: ['felleshuset@strandhager.no', '957 82 508'],
 };
 

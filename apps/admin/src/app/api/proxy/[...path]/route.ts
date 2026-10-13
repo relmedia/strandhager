@@ -41,7 +41,9 @@ async function forward(request: Request, path: string[]): Promise<Response> {
   const response = await fetch(target, {
     method: request.method,
     headers,
-    body: hasBody ? await request.text() : undefined,
+    // Bytes, not text: file uploads come through here as multipart, and
+    // decoding that as a string corrupts every non-text byte in the file.
+    body: hasBody ? await request.arrayBuffer() : undefined,
     cache: "no-store",
     redirect: "manual",
   });

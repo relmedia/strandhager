@@ -22,6 +22,7 @@ import {
   type SetupOption,
 } from '../pricing/quote';
 import { landlordFor } from './landlord';
+import { SettingsService } from '../settings/settings.service';
 import {
   addDays,
   daysBetween,
@@ -78,6 +79,7 @@ export class BookingsService {
     private readonly notifications: NotificationsService,
     private readonly payments: PaymentsService,
     private readonly pricing: PricingService,
+    private readonly settings: SettingsService,
   ) {}
 
   // --- Public -------------------------------------------------------------
@@ -138,6 +140,11 @@ export class BookingsService {
     // body: otherwise anyone could post their own discount straight to the API.
     const discountPercent = await this.pricing.discountPercentFor(space, dto.email);
 
+    // Frozen onto the booking now rather than read at render time, so changing
+    // the organisation settings later never rewords an agreement that has
+    // already gone out.
+    const landlord = await this.settings.landlordForNewBooking();
+
     const quote = priceOrThrow(
       space.rates,
       space.cleaningFee,
@@ -195,6 +202,8 @@ export class BookingsService {
           setupFee: quote.setupFee,
           discountPercent: quote.discountPercent,
           discountAmount: quote.discountAmount,
+          landlordName: landlord.name,
+          landlordLines: landlord.lines,
           guests: dto.guests,
           purpose: dto.purpose ?? null,
           message: dto.message ?? null,
@@ -241,6 +250,7 @@ export class BookingsService {
     }
 
     const quote = priceOrThrow(space.rates, space.cleaningFee, start, end);
+    const landlord = await this.settings.landlordForNewBooking();
 
     const booking = await this.prisma.$transaction(
       async (tx) => {
@@ -268,6 +278,8 @@ export class BookingsService {
           // Manual bookings carry no setup day, but the column still has to
           // agree with startDate or overlap would miss the first day.
           blockedFrom: parseIsoDate(start),
+          landlordName: landlord.name,
+          landlordLines: landlord.lines,
           guests: dto.guests,
           purpose: dto.purpose ?? null,
           message: null,

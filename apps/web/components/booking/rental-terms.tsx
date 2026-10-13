@@ -203,7 +203,7 @@ export function RentalTermsDialog({
             <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
               <Party
                 label="Utleier"
-                name="Ølberg strandhager ved hagestyret"
+                name="Ølberg strandhager"
                 lines={["felleshuset@strandhager.no", "957 82 508"]}
               />
               <Party

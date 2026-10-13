@@ -4,9 +4,11 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
+  MinLength,
   ValidateIf,
 } from 'class-validator';
 
@@ -59,4 +61,23 @@ export class UpdateParcelDto {
   @ValidateIf((_, value) => value !== null)
   @IsString()
   ownerId?: string | null;
+}
+
+/** Records a file that /media has already accepted and stored. */
+export class AddParcelDocumentDto {
+  @IsString()
+  @MinLength(1, { message: 'Dokumentet må ha et navn' })
+  @MaxLength(160, { message: 'Navnet kan være maks 160 tegn' })
+  title!: string;
+
+  /**
+   * Where the upload put it. Restricted to the documents folder so this cannot
+   * be used to point a parcel at an arbitrary address.
+   */
+  @IsString()
+  @Matches(/^(\/dokumenter\/|https:\/\/)/, {
+    message: 'Lenken må peke på et opplastet dokument',
+  })
+  @MaxLength(500)
+  url!: string;
 }

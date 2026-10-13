@@ -18,6 +18,7 @@ import { ParcelsModule } from './parcels/parcels.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SettingsModule } from './settings/settings.module';
 import { SiteContentModule } from './site-content/site-content.module';
 import { SpacesModule } from './spaces/spaces.module';
 
@@ -41,6 +42,7 @@ import { SpacesModule } from './spaces/spaces.module';
     PaymentsModule,
     PricingModule,
     CmsModule,
+    SettingsModule,
     SiteContentModule,
     MediaModule,
     NotificationsModule,

@@ -31,6 +31,20 @@ export function updateParcel(id: string, patch: ParcelUpdate) {
   });
 }
 
+/** Records an already-uploaded document against a plot. */
+export function addParcelDocument(parcelId: string, input: { title: string; url: string }) {
+  return apiFetch<Parcel>(`/parcels/${parcelId}/documents`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteParcelDocument(parcelId: string, documentId: string) {
+  return apiFetch<Parcel>(`/parcels/${parcelId}/documents/${documentId}`, {
+    method: "DELETE",
+  });
+}
+
 export function deleteParcel(id: string) {
   return apiFetch<{ id: string }>(`/parcels/${id}`, { method: "DELETE" });
 }

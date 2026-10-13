@@ -7,13 +7,21 @@ import {
 import type { Prisma } from '@cabin/database';
 
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateParcelDto, UpdateParcelDto } from './dto/parcel.dto';
+import type {
+  AddParcelDocumentDto,
+  CreateParcelDto,
+  UpdateParcelDto,
+} from './dto/parcel.dto';
 import { syncOwner, today } from './ownerships.service';
 
 const INCLUDE = {
   owner: {
     select: { id: true, firstName: true, lastName: true, email: true, phone: true },
   },
+  documents: { orderBy: { createdAt: 'desc' } },
+  /** Just the tally, so the dialog can label its history tab without
+   *  fetching every ownership spell up front. */
+  _count: { select: { ownerships: true } },
 } satisfies Prisma.ParcelInclude;
 
 type ParcelRecord = Prisma.ParcelGetPayload<{ include: typeof INCLUDE }>;
@@ -139,6 +147,38 @@ export class ParcelsService {
       throw new ConflictException(`Parsell ${number} finnes allerede`);
     }
   }
+
+  /**
+   * Attaches an already-uploaded file to a plot.
+   *
+   * The upload itself goes through /media, which is what enforces the type and
+   * size limits; this only records where it landed.
+   */
+  async addDocument(parcelId: string, dto: AddParcelDocumentDto) {
+    await this.findOne(parcelId);
+
+    await this.prisma.parcelDocument.create({
+      data: { parcelId, title: dto.title.trim(), url: dto.url.trim() },
+    });
+
+    return this.findOne(parcelId);
+  }
+
+  /**
+   * Removes the record. The uploaded file is deleted separately by the
+   * dashboard through /media, so a failure there cannot strand a row that no
+   * longer points anywhere.
+   */
+  async removeDocument(parcelId: string, documentId: string) {
+    const doc = await this.prisma.parcelDocument.findUnique({ where: { id: documentId } });
+
+    if (!doc || doc.parcelId !== parcelId) {
+      throw new NotFoundException('Fant ingen dokument med denne id-en på parsellen');
+    }
+
+    await this.prisma.parcelDocument.delete({ where: { id: documentId } });
+    return this.findOne(parcelId);
+  }
 }
 
 export function toView(parcel: ParcelRecord) {
@@ -150,6 +190,13 @@ export function toView(parcel: ParcelRecord) {
     available: parcel.available,
     status: statusOf(parcel),
     owner: parcel.owner,
+    ownershipCount: parcel._count.ownerships,
+    documents: parcel.documents.map((doc) => ({
+      id: doc.id,
+      title: doc.title,
+      url: doc.url,
+      createdAt: doc.createdAt.toISOString(),
+    })),
     updatedAt: parcel.updatedAt.toISOString(),
   };
 }

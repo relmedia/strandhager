@@ -11,6 +11,14 @@ export type ParcelOwner = {
   phone: string | null;
 };
 
+/** A file the board keeps against a plot. Dashboard only. */
+export type ParcelDocument = {
+  id: string;
+  title: string;
+  url: string;
+  createdAt: string;
+};
+
 export type Parcel = {
   id: string;
   number: number;
@@ -19,6 +27,9 @@ export type Parcel = {
   available: boolean;
   status: ParcelStatus;
   owner: ParcelOwner | null;
+  /** How many ownership spells the plot has had, past and present. */
+  ownershipCount: number;
+  documents: ParcelDocument[];
   updatedAt: string;
 };
 
