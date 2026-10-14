@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 /**
  * Who a request appears to come from, for rate-limiting purposes.
  *
@@ -16,6 +18,13 @@ export function clientIp(request: {
   ip?: string;
   socket?: { remoteAddress?: string };
 }): string {
+  // The dashboard logs in from its own server, so the platform headers name
+  // that server rather than the person at the keyboard. It forwards the
+  // browser's address signed with the secret both apps share; a valid
+  // signature is the only way a forwarded address is believed.
+  const forwardedFor = forwardedClient(request);
+  if (forwardedFor) return forwardedFor;
+
   const realIp = header(request, 'x-real-ip');
   if (realIp) return realIp;
 
@@ -36,4 +45,21 @@ function header(
   const value = request.headers[name];
   const first = Array.isArray(value) ? value[0] : value;
   return first?.trim() ? first.trim() : null;
+}
+
+/** Header names the dashboard uses to pass on the browser's address. */
+export const CLIENT_IP_HEADER = 'x-strandhager-client-ip';
+export const CLIENT_IP_SIGNATURE_HEADER = 'x-strandhager-client-ip-sig';
+
+function forwardedClient(request: {
+  headers: Record<string, string | string[] | undefined>;
+}): string | null {
+  const ip = header(request, CLIENT_IP_HEADER);
+  const signature = header(request, CLIENT_IP_SIGNATURE_HEADER);
+  const secret = process.env.AUTH_JWT_SECRET;
+  if (!ip || !signature || !secret) return null;
+
+  const expected = createHmac('sha256', secret).update(`client-ip:${ip}`).digest();
+  const received = Buffer.from(signature, 'base64url');
+  return received.length === expected.length && timingSafeEqual(received, expected) ? ip : null;
 }

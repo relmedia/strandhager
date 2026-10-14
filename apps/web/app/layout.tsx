@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 
 import { HashScroll } from "@/components/hash-scroll";
+import { PageViewTracker } from "@/components/page-view-tracker";
 
 import "./globals.css";
 
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="nb" className={`${manrope.variable} ${fraunces.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
         <HashScroll />
+        <PageViewTracker />
         {children}
       </body>
     </html>

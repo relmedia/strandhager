@@ -259,7 +259,20 @@ export class AuthService {
   }
 
   /** Turns the one-time e-mail code at login on or off for the user's own account. */
-  async setTwoFactor(userId: string, enabled: boolean) {
+  async setTwoFactor(userId: string, enabled: boolean, currentPassword?: string) {
+    // Turning it off weakens the account, so it takes the password as well as
+    // a session: someone holding only a stolen token cannot do it.
+    if (!enabled) {
+      const account = await this.prisma.adminUser.findUnique({ where: { id: userId } });
+      if (!account) throw new UnauthorizedException();
+      const ok = currentPassword
+        ? await bcrypt.compare(currentPassword, account.passwordHash)
+        : false;
+      if (!ok) {
+        throw new UnauthorizedException('Skriv inn passordet ditt for å slå av tofaktor.');
+      }
+    }
+
     const user = await this.prisma.adminUser.update({
       where: { id: userId },
       data: { twoFactorEnabled: enabled },

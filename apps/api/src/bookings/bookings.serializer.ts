@@ -56,13 +56,55 @@ export function toAdminView(booking: BookingRecord) {
     // So an administrator can send the guest their link again. Nothing else
     // stores it, and there is no email delivery yet.
     cancelToken: booking.cancelToken,
+    tripletex: {
+      invoiceId: booking.tripletexInvoiceId,
+      invoiceNumber: booking.tripletexInvoiceNumber,
+      credited: booking.tripletexCreditNoteId !== null,
+      paymentSynced: booking.tripletexPaymentSynced,
+      error: booking.tripletexError,
+      syncedAt: booking.tripletexSyncedAt?.toISOString() ?? null,
+    },
   };
 }
 
 /** What the guest may see: no internal notes, no database id, no token. */
+/**
+ * What a guest sees through their own booking link.
+ *
+ * An allow-list on purpose: anything added to the admin view later stays in
+ * the dashboard unless it is named here. It mirrors the website's own Booking
+ * type (apps/web/lib/booking.ts).
+ */
 export function toGuestView(booking: BookingRecord) {
-  // The signature stays out too: it is dashboard evidence, and inlining the
-  // image would bloat every guest response.
-  const { id, notes, cancelToken, signature, paymentReference, ...rest } = toAdminView(booking);
-  return rest;
+  const view = toAdminView(booking);
+  return {
+    reference: view.reference,
+    status: view.status,
+    paymentStatus: view.paymentStatus,
+    startDate: view.startDate,
+    endDate: view.endDate,
+    days: view.days,
+    guests: view.guests,
+    purpose: view.purpose,
+    message: view.message,
+    dayTotal: view.dayTotal,
+    cleaningFee: view.cleaningFee,
+    setupOption: view.setupOption,
+    setupFee: view.setupFee,
+    setupDate: view.setupDate,
+    discountPercent: view.discountPercent,
+    discountAmount: view.discountAmount,
+    total: view.total,
+    cancelledAt: view.cancelledAt,
+    cancelReason: view.cancelReason,
+    createdAt: view.createdAt,
+    space: view.space,
+    guest: {
+      firstName: view.guest.firstName,
+      lastName: view.guest.lastName,
+      email: view.guest.email,
+      phone: view.guest.phone,
+      company: view.guest.company,
+    },
+  };
 }

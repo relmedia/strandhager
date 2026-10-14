@@ -9,6 +9,7 @@ import {
   Check,
   CircleSlash,
   Copy,
+  LoaderCircle,
   PartyPopper,
   Pencil,
   Printer,
@@ -52,6 +53,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useBooking } from "@/hooks/use-bookings";
 import { refundBooking, updateBooking } from "@/lib/booking";
+import { getTripletexSettings, syncBookingToTripletex } from "@/lib/tripletex";
 import { updateGuest } from "@/lib/guest";
 import { formatMoney, formatTimestamp } from "@/lib/format";
 import { WEB_URL } from "@/lib/media";
@@ -197,6 +199,8 @@ export function BookingDetail({ id, adminName }: { id: string; adminName: string
             {!data.paymentReference ? (
               <ManualPayment booking={data} saving={saving} onApply={apply} />
             ) : null}
+
+            <TripletexStatus booking={data} onDone={() => void reload()} />
           </section>
 
         </div>
@@ -851,5 +855,79 @@ function BackLink() {
       <ArrowLeft className="size-4" />
       Alle bookinger
     </Link>
+  );
+}
+
+/**
+ * Where the booking stands in Tripletex: the invoice number, whether the Vipps
+ * payment or a credit note has followed, and what went wrong if something did.
+ * Hidden entirely while the connection is off and nothing was ever sent.
+ */
+function TripletexStatus({ booking, onDone }: { booking: Booking; onDone: () => void }) {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [working, setWorking] = useState(false);
+  const { tripletex } = booking;
+
+  useEffect(() => {
+    getTripletexSettings()
+      .then((settings) => setEnabled(settings.enabled && settings.complete))
+      .catch(() => setEnabled(false));
+  }, []);
+
+  const invoiceable = booking.status === "CONFIRMED" || booking.status === "COMPLETED";
+  if (!tripletex.invoiceNumber && !tripletex.error && !(enabled && invoiceable)) return null;
+
+  async function sync() {
+    setWorking(true);
+    try {
+      const result = await syncBookingToTripletex(booking.id);
+      if (result.ok) toast.success("Tripletex er oppdatert");
+      else toast.error(result.error ?? "Tripletex svarte ikke som ventet");
+      onDone();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Klarte ikke å nå Tripletex");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  const state = tripletex.credited
+    ? "kreditert"
+    : tripletex.paymentSynced
+      ? "betalt"
+      : "sendt";
+
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">Tripletex</span>
+        {tripletex.invoiceNumber ? (
+          <span>
+            Faktura {tripletex.invoiceNumber} <span className="text-muted-foreground">· {state}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">Ikke fakturert</span>
+        )}
+      </div>
+
+      {tripletex.error ? (
+        <p className="rounded-md bg-destructive/5 p-2.5 text-destructive text-xs leading-relaxed">
+          {tripletex.error}
+        </p>
+      ) : null}
+
+      {tripletex.error || (!tripletex.invoiceNumber && enabled && invoiceable) ? (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          disabled={working}
+          onClick={() => void sync()}
+        >
+          {working ? <LoaderCircle className="size-4 animate-spin" /> : null}
+          {tripletex.error ? "Prøv igjen" : "Send til Tripletex"}
+        </Button>
+      ) : null}
+    </div>
   );
 }

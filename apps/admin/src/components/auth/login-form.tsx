@@ -48,8 +48,7 @@ export function LoginForm() {
     },
   });
 
-  const redirectTo = searchParams.get("redirectTo");
-  const destination = redirectTo?.startsWith("/") ? redirectTo : AUTH_HOME_PATH;
+  const destination = safeRedirect(searchParams.get("redirectTo"));
   const denied = searchParams.get("feil") === "ingen-tilgang";
 
   const onCredentials = async (data: Credentials) => {
@@ -261,4 +260,21 @@ export function LoginForm() {
       </form>
     </div>
   );
+}
+
+/**
+ * Where to go after logging in: only a path on this dashboard. A plain
+ * startsWith("/") would also let "//evil.example" through, which browsers read
+ * as another site – a ready-made phishing link. Resolving it against a dummy
+ * origin and checking the origin survived catches that and its variants.
+ */
+function safeRedirect(target: string | null): string {
+  if (!target?.startsWith("/")) return AUTH_HOME_PATH;
+  try {
+    const base = "https://dashboard.invalid";
+    const url = new URL(target, base);
+    return url.origin === base ? `${url.pathname}${url.search}${url.hash}` : AUTH_HOME_PATH;
+  } catch {
+    return AUTH_HOME_PATH;
+  }
 }

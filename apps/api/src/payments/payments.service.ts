@@ -6,7 +6,8 @@ import { toAdminView } from '../bookings/bookings.serializer';
 import { toIsoDate } from '../common/dates';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { VippsService } from './vipps.service';
+import { VippsService, type VippsPayment } from './vipps.service';
+import { TripletexService } from '../tripletex/tripletex.service';
 
 /** Same slice of related records as the bookings module loads. */
 const INCLUDE = {
@@ -61,6 +62,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly vipps: VippsService,
     private readonly notifications: NotificationsService,
+    private readonly tripletex: TripletexService,
   ) {}
 
   /**
@@ -69,7 +71,7 @@ export class PaymentsService {
    * confirmation must go through even when Vipps is down or unconfigured.
    */
   async paymentForBooking(booking: PayableBooking): Promise<BookingPayment | undefined> {
-    if (!this.vipps.configured) {
+    if (!(await this.vipps.isConfigured())) {
       this.logger.log('Vipps er ikke konfigurert, hopper over betalingslenke');
       return undefined;
     }
@@ -138,7 +140,7 @@ export class PaymentsService {
       throw new BadRequestException('Bookingen er ikke registrert som betalt via Vipps.');
     }
 
-    if (!this.vipps.configured) {
+    if (!(await this.vipps.isConfigured())) {
       throw new BadRequestException('Vipps er ikke konfigurert på serveren.');
     }
 
@@ -158,6 +160,7 @@ export class PaymentsService {
     });
 
     this.logger.log(`Refunderte ${booking.total} kr for booking ${booking.reference}`);
+    await this.tripletex.sync(booking.id);
 
     await this.notifications.notifyPaymentRefunded({
       reference: updated.reference,
@@ -170,12 +173,20 @@ export class PaymentsService {
       total: updated.total,
     });
 
-    return toAdminView(updated);
+    // Re-read so the Tripletex credit note is in the answer.
+    const fresh = await this.prisma.booking.findUniqueOrThrow({
+      where: { id: booking.id },
+      include: INCLUDE,
+    });
+    return toAdminView(fresh);
   }
 
   /**
-   * A payment changed state at Vipps. Capture the money when the customer has
-   * approved it, and mark the booking as paid.
+   * A payment changed state at Vipps. The webhook body is treated as a nudge,
+   * never as the truth: the payment is fetched back from Vipps and the booking
+   * follows what Vipps reports. That way a forged or replayed webhook can at
+   * most make us ask Vipps an extra question – it can never mark a booking
+   * paid that was not.
    */
   async handleVippsEvent(event: VippsWebhookEvent): Promise<void> {
     const reference = typeof event.reference === 'string' ? event.reference : null;
@@ -194,15 +205,30 @@ export class PaymentsService {
     const name = String(event.name ?? '').toUpperCase();
     this.logger.log(`Vipps-webhook ${name} for booking ${booking.reference}`);
 
+    // VIPPS_MOCK has no real payment to look up, so the event is all there is.
+    const payment = this.vipps.isMock
+      ? mockPayment(name, booking.total)
+      : await this.vipps.getPayment(reference);
+
+    const totalOre = Math.round(booking.total * 100);
+    const { authorizedAmount, capturedAmount, refundedAmount } = payment.aggregate;
+
     // A refund done straight in the Vipps portal should show up here too.
-    if (name === 'REFUNDED') {
-      await this.setPaymentStatus(booking.id, PaymentStatus.REFUNDED);
+    if (refundedAmount.value > 0) {
+      if (booking.paymentStatus !== PaymentStatus.REFUNDED) {
+        await this.setPaymentStatus(booking.id, PaymentStatus.REFUNDED);
+      }
       return;
     }
 
     if (booking.paymentStatus === PaymentStatus.PAID) return;
 
-    if (name === 'AUTHORIZED' && event.success !== false) {
+    if (capturedAmount.value >= totalOre) {
+      await this.setPaymentStatus(booking.id, PaymentStatus.PAID);
+      return;
+    }
+
+    if (payment.state === 'AUTHORIZED' && authorizedAmount.value >= totalOre) {
       // The customer approved in the app; the money must be captured before
       // it actually moves.
       try {
@@ -212,16 +238,13 @@ export class PaymentsService {
         return;
       }
       await this.setPaymentStatus(booking.id, PaymentStatus.PAID);
-      return;
-    }
-
-    if (name === 'CAPTURED') {
-      await this.setPaymentStatus(booking.id, PaymentStatus.PAID);
     }
   }
 
+  /** Every Vipps event lands here, so this is where Tripletex hears about it. */
   private async setPaymentStatus(id: string, paymentStatus: PaymentStatus): Promise<void> {
     await this.prisma.booking.update({ where: { id }, data: { paymentStatus } });
+    await this.tripletex.sync(id);
   }
 }
 
@@ -235,4 +258,18 @@ function toMsisdn(phone: string): string | undefined {
   if (digits.length === 8) return `47${digits}`;
   if (digits.length === 10 && digits.startsWith('47')) return digits;
   return undefined;
+}
+
+/** What a real Vipps payment would look like after `event`, for VIPPS_MOCK. */
+function mockPayment(event: string, totalNok: number): VippsPayment {
+  const amount = (value: number) => ({ currency: 'NOK', value });
+  const ore = Math.round(totalNok * 100);
+  return {
+    state: event === 'CREATED' ? 'CREATED' : 'AUTHORIZED',
+    aggregate: {
+      authorizedAmount: amount(event === 'CREATED' ? 0 : ore),
+      capturedAmount: amount(event === 'CAPTURED' || event === 'REFUNDED' ? ore : 0),
+      refundedAmount: amount(event === 'REFUNDED' ? ore : 0),
+    },
+  };
 }

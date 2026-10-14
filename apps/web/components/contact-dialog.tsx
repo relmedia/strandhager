@@ -265,6 +265,13 @@ export function ContactDialog({
                 ) : null}
                 Send melding
               </button>
+              <p className="mt-3 text-ink-muted/80 text-xs leading-relaxed">
+                Vi bruker opplysningene bare til å svare deg. Les mer om{" "}
+                <a href="/personvern" target="_blank" rel="noopener" className="underline underline-offset-2 transition-colors hover:text-ink">
+                  personvern
+                </a>
+                .
+              </p>
             </div>
 
             <DirectContact topic={draft.topic} contact={contact} />

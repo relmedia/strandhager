@@ -14,6 +14,7 @@ import Image from "next/image";
 import { GalleryStrip } from "@/components/gallery-strip";
 import { MaskedHeading } from "@/components/masked-heading";
 import { SectionReveal } from "@/components/section-reveal";
+import { Spotlight } from "@/components/ui/spotlight";
 import { WaitlistCard } from "@/components/waitlist-card";
 import type { Architect, CabinFeatureIcon, ParselleneContent } from "@/lib/site-content";
 
@@ -82,17 +83,15 @@ export function ParselleneSection({ parsellene }: { parsellene: ParselleneConten
       className="relative overflow-hidden bg-night py-28 text-white md:py-40"
     >
       {/* Dusk in the gardens: the green reads as light coming through planting
-          at the top left, the sea as cold light along the bottom right. The
-          dark band is also the page's rhythm break - two light sections sat
-          back to back before this. */}
+          at the top left. The dark band is also the page's rhythm break - two
+          light sections sat back to back before this. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_8%_-5%,color-mix(in_oklab,var(--brand-green)_26%,transparent),transparent_60%)]"
       />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-40 -bottom-48 size-144 rounded-full bg-sea-deep/25 blur-3xl"
-      />
+      {/* Two searchlights angled in from the top corners. They are a screen
+          tall, so they light the heading and leave the body text alone. */}
+      <Spotlight />
       {/* A faint grain so the large dark field never looks like flat fill. */}
       <div
         aria-hidden

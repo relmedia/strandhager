@@ -125,6 +125,10 @@ export const sidebarItems: NavGroup[] = [
         title: "Media",
         url: "/media",
         icon: ImageIcon,
+        subItems: [
+          { title: "Bilder", url: "/media/bilder" },
+          { title: "Dokumenter", url: "/media/dokumenter" },
+        ],
       },
     ],
   },
@@ -146,6 +150,7 @@ export const sidebarItems: NavGroup[] = [
           { title: "Bedrift", url: "/installningar/foretag" },
           { title: "Booking", url: "/installningar/bokning" },
           { title: "Betaling", url: "/installningar/betalning" },
+          { title: "Regnskap", url: "/installningar/regnskap" },
           { title: "E-post", url: "/installningar/e-post" },
           { title: "Brukere", url: "/installningar/anvandare" },
         ],

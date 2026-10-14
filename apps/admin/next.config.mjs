@@ -1,3 +1,5 @@
+import { securityHeaders } from "./security-headers.mjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactCompiler: true,
@@ -9,6 +11,11 @@ const nextConfig = {
   // login credentials are never printed to the terminal.
   logging: {
     serverFunctions: false,
+  },
+  // The dashboard is private: no framing, no sniffing, no stray referrers.
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
   },
   experimental: {
     serverActions: {

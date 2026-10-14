@@ -23,6 +23,7 @@ import {
 } from '../pricing/quote';
 import { landlordFor } from './landlord';
 import { SettingsService } from '../settings/settings.service';
+import { TripletexService } from '../tripletex/tripletex.service';
 import {
   addDays,
   daysBetween,
@@ -80,6 +81,7 @@ export class BookingsService {
     private readonly payments: PaymentsService,
     private readonly pricing: PricingService,
     private readonly settings: SettingsService,
+    private readonly tripletex: TripletexService,
   ) {}
 
   // --- Public -------------------------------------------------------------
@@ -190,7 +192,7 @@ export class BookingsService {
           }
         }
 
-        const guest = await upsertGuest(tx, dto);
+        const guest = await upsertGuest(tx, dto, { trusted: false });
 
         return createWithReference(tx, {
           spaceId: space.id,
@@ -268,7 +270,7 @@ export class BookingsService {
           );
         }
 
-        const guest = await upsertGuest(tx, dto);
+        const guest = await upsertGuest(tx, dto, { trusted: true });
 
         return createWithReference(tx, {
           spaceId: space.id,
@@ -307,7 +309,10 @@ export class BookingsService {
       });
     }
 
-    return toAdminView(booking);
+    // Best-effort and never throws; a failure shows on the booking instead.
+    await this.tripletex.sync(booking.id);
+
+    return this.findOne(booking.id);
   }
 
   /** Looks a booking up from the guest's link. */
@@ -354,6 +359,7 @@ export class BookingsService {
     });
 
     await this.notifications.notifyBookingCancelledByGuest(toMail(updated));
+    await this.tripletex.sync(updated.id);
 
     return { booking: toGuestView(updated), cancellable: false };
   }
@@ -554,7 +560,13 @@ export class BookingsService {
       });
     }
 
-    return toAdminView(updated);
+    // Confirming invoices, cancelling an unpaid booking credits it. Never throws.
+    if (dto.status !== undefined || dto.paymentStatus !== undefined) {
+      await this.tripletex.sync(updated.id);
+    }
+
+    // Re-read so the Tripletex result is in the answer.
+    return this.findOne(updated.id);
   }
 
   async remove(id: string) {
@@ -687,7 +699,21 @@ type GuestFields = {
 };
 
 /** Reuses the guest record when the same address books again. */
-async function upsertGuest(tx: Prisma.TransactionClient, dto: GuestFields) {
+/**
+ * Finds or creates the guest a booking belongs to, by e-mail.
+ *
+ * The public form is unauthenticated, so anyone can type any address into it.
+ * From there an existing guest is never overwritten: a request whose name
+ * matches only fills in what the record lacks, and one whose name does not
+ * match gets a record of its own. Otherwise a stranger could rewrite another
+ * guest's name and phone on every booking they have made. The dashboard is
+ * trusted and updates the record as before.
+ */
+async function upsertGuest(
+  tx: Prisma.TransactionClient,
+  dto: GuestFields,
+  { trusted }: { trusted: boolean },
+) {
   const email = dto.email.toLowerCase();
   const data = {
     firstName: dto.firstName,
@@ -697,13 +723,28 @@ async function upsertGuest(tx: Prisma.TransactionClient, dto: GuestFields) {
     company: dto.company ?? null,
   };
 
-  const existing = await tx.guest.findFirst({ where: { email } });
-
-  if (existing) {
-    return tx.guest.update({ where: { id: existing.id }, data });
+  if (trusted) {
+    const existing = await tx.guest.findFirst({ where: { email } });
+    return existing
+      ? tx.guest.update({ where: { id: existing.id }, data })
+      : tx.guest.create({ data });
   }
 
-  return tx.guest.create({ data });
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const candidates = await tx.guest.findMany({ where: { email }, orderBy: { createdAt: 'asc' } });
+  const match = candidates.find(
+    (guest) => same(guest.firstName, data.firstName) && same(guest.lastName, data.lastName),
+  );
+
+  if (!match) return tx.guest.create({ data });
+
+  const missing = {
+    ...(!match.phone && data.phone ? { phone: data.phone } : {}),
+    ...(!match.company && data.company ? { company: data.company } : {}),
+  };
+  return Object.keys(missing).length > 0
+    ? tx.guest.update({ where: { id: match.id }, data: missing })
+    : match;
 }
 
 /** Retries on the vanishingly rare case of two bookings drawing the same code. */

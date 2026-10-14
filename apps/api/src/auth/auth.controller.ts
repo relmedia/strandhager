@@ -18,6 +18,17 @@ import {
   VerifyCodeDto,
 } from './dto/login.dto';
 import { Public } from './public.decorator';
+import { MINUTE, Throttle, ThrottleGuard } from '../common/throttle';
+
+/**
+ * Per address, not per account: the per-account pause in AuthService stops
+ * guessing one password, this stops one machine spraying many accounts.
+ */
+const LOGIN_LIMIT = {
+  limit: 20,
+  windowMs: 15 * MINUTE,
+  message: 'For mange innloggingsforsøk fra denne adressen. Vent et kvarter og prøv igjen.',
+};
 
 @Controller('auth')
 export class AuthController {
@@ -25,7 +36,9 @@ export class AuthController {
 
   /** Public: the password check that issues the token in the first place. */
   @Public()
-  @UseGuards(AuthGuard('local'))
+  // The throttle runs first, so a blocked caller never reaches the password check.
+  @UseGuards(ThrottleGuard, AuthGuard('local'))
+  @Throttle({ bucket: 'login', ...LOGIN_LIMIT })
   @Post('login')
   login(@Request() req: { user: { id: string; email: string; name: string } }) {
     return this.authService.login(req.user);
@@ -33,6 +46,8 @@ export class AuthController {
 
   /** Public: second step of login, before any token exists. */
   @Public()
+  @UseGuards(ThrottleGuard)
+  @Throttle({ bucket: 'login-verify', ...LOGIN_LIMIT })
   @Post('verify')
   verify(@Body() dto: VerifyCodeDto) {
     return this.authService.verifyCode(dto.challengeId, dto.code);
@@ -71,7 +86,7 @@ export class AuthController {
     @Request() req: { user: { id: string; email: string; name: string } },
     @Body() dto: SetTwoFactorDto,
   ) {
-    return this.authService.setTwoFactor(req.user.id, dto.enabled);
+    return this.authService.setTwoFactor(req.user.id, dto.enabled, dto.currentPassword);
   }
 
   @UseGuards(AuthGuard('jwt'))

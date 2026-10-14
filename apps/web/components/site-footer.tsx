@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import { NavLink } from "@/components/nav-link";
 import type { SiteContent } from "@/lib/site-content";
@@ -99,6 +100,9 @@ export function SiteFooter({ site }: { site: SiteContent }) {
                 className="hover:text-white/80"
               />
             ))}
+            <Link href="/personvern" className="hover:text-white/80">
+              Personvern
+            </Link>
           </nav>
         </div>
       </div>

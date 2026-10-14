@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEmail, IsString, Length, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, Length, MaxLength, MinLength } from 'class-validator';
 
 const trim = () =>
   Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
@@ -36,6 +36,12 @@ export class ChangePasswordDto {
 export class SetTwoFactorDto {
   @IsBoolean()
   enabled!: boolean;
+
+  /** Required to turn it off, so a stolen session cannot strip the protection. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  currentPassword?: string;
 }
 
 export class InviteUserDto {

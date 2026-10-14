@@ -119,6 +119,9 @@ model Guest {
   /// Organisation booking on behalf of, when there is one.
   company   String?
 
+  /// The matching customer in Tripletex, once one has been created.
+  tripletexCustomerId Int?
+
   bookings  Booking[]
 
   createdAt DateTime @default(now())
@@ -196,6 +199,17 @@ model Booking {
   /// The reference of the Vipps payment created at confirmation, so
   /// webhook events can be traced back to the booking.
   paymentReference String?
+
+  /// Tripletex bookkeeping. Each id is stored as soon as the step succeeds,
+  /// so a retry carries on where the last attempt stopped.
+  tripletexInvoiceId     Int?
+  tripletexInvoiceNumber String?
+  tripletexCreditNoteId  Int?
+  /// The Vipps payment has been registered on the invoice.
+  tripletexPaymentSynced Boolean   @default(false)
+  /// The last thing Tripletex refused, shown on the booking until it works.
+  tripletexError         String?
+  tripletexSyncedAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -411,6 +425,56 @@ model MailSettings {
   updatedAt DateTime @updatedAt
 }
 
+/// Vipps MobilePay setup, managed from the dashboard. Any key left empty falls
+/// back to its VIPPS_* environment variable, so a server configured through
+/// .env keeps working. The secrets are never sent back to the browser in full.
+model VippsSettings {
+  id String @id @default("vipps")
+
+  /// Master switch: off means bookings are confirmed without a pay link.
+  enabled    Boolean @default(false)
+  /// false = Vipps' test environment (apitest.vipps.no).
+  production Boolean @default(false)
+
+  clientId        String?
+  clientSecret    String?
+  subscriptionKey String?
+  merchantSerial  String?
+
+  /// Set when the webhook is registered from the dashboard; the secret signs
+  /// the requests Vipps sends back.
+  webhookId     String?
+  webhookSecret String?
+  webhookUrl    String?
+
+  updatedAt DateTime @updatedAt
+}
+
+/// The Tripletex connection, managed from Innstillinger → Regnskap. Confirmed
+/// bookings become invoices there, and Vipps payments and refunds follow.
+model TripletexSettings {
+  id String @id @default("tripletex")
+
+  enabled    Boolean @default(false)
+  /// false = Tripletex' test environment (api-test.tripletex.tech).
+  production Boolean @default(false)
+
+  /// Issued by Tripletex to this integration.
+  consumerToken String?
+  /// Created by a Tripletex user; the integration acts as that user.
+  employeeToken String?
+
+  /// VAT type on the invoice lines. Letting premises is usually VAT exempt.
+  vatTypeId     Int?
+  /// The payment type ("Vipps") Vipps payments are registered with.
+  paymentTypeId Int?
+  /// Let Tripletex e-mail the invoice. Off: the guest already has a Vipps link.
+  sendInvoice   Boolean @default(false)
+  dueDays       Int     @default(14)
+
+  updatedAt DateTime @updatedAt
+}
+
 /// A message sent through the contact form on the website.
 model ContactMessage {
   id String @id @default(cuid())
@@ -531,4 +595,30 @@ model LoginChallenge {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+/// One page load on the public website, for the reports page.
+///
+/// First-party and cookieless: nothing is stored in the visitor's browser, and
+/// no IP address is kept. A visitor is a salted hash of IP + user agent that
+/// rotates daily, so nobody can be followed from one day to the next.
+model PageView {
+  id String @id @default(cuid())
+
+  /// Pathname only; query strings and fragments are stripped.
+  path     String
+  /// External referrer hostname; null means direct or internal.
+  referrer String?
+
+  visitorHash String
+  /// Groups views from one visitor with less than 30 minutes between them.
+  sessionId   String
+
+  /// ISO 3166-1 alpha-2, from the hosting platform's geo headers.
+  country String?
+  city    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([visitorHash, createdAt])
 }

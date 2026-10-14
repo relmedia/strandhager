@@ -248,7 +248,10 @@ export function WaitlistCard({ waitlist }: { waitlist: Waitlist }) {
                 </button>
 
                 <p className="text-ink-muted/80 text-xs leading-relaxed sm:ml-auto sm:max-w-xs">
-                  Opplysningene brukes bare til å kontakte deg om en ledig parsell.
+                  Opplysningene brukes bare til å kontakte deg om en ledig parsell.{" "}
+                  <a href="/personvern" target="_blank" rel="noopener" className="underline underline-offset-2 transition-colors hover:text-ink">
+                    Personvern
+                  </a>
                 </p>
               </div>
             </form>

@@ -13,13 +13,17 @@ import {
 import type { Request } from 'express';
 
 import { PaymentsService } from './payments.service';
+import { VippsService } from './vipps.service';
 import { Public } from '../auth/public.decorator';
 
 @Controller('payments')
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name);
 
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(
+    private readonly payments: PaymentsService,
+    private readonly vipps: VippsService,
+  ) {}
 
   /** Dashboard: sends the full amount back to the guest through Vipps. */
   @Post('bookings/:id/refund')
@@ -28,9 +32,9 @@ export class PaymentsController {
   }
 
   /**
-   * Vipps calls this when a payment changes state. Register the URL with the
-   * Webhooks API and put the returned secret in VIPPS_WEBHOOK_SECRET so the
-   * signature can be checked.
+   * Vipps calls this when a payment changes state. Registering it from
+   * Innstillinger → Betaling stores the signing secret; VIPPS_WEBHOOK_SECRET
+   * still works as a fallback.
    */
   /** Public: Vipps posts here. Authenticated by its HMAC signature, not a
    *  login, which is why the raw body is kept. */
@@ -41,27 +45,34 @@ export class PaymentsController {
     @Req() request: RawBodyRequest<Request>,
     @Body() body: Record<string, unknown>,
   ) {
-    if (!verifyVippsSignature(request)) {
+    const secret = await this.vipps.webhookSecret();
+
+    // Fail closed: without a secret there is no way to tell Vipps from anyone
+    // else. Only VIPPS_MOCK, which never touches real money, runs without one.
+    if (!secret && !this.vipps.isMock) {
+      this.logger.warn(
+        'Avviste Vipps-webhook: ingen webhook-hemmelighet er satt. Registrer webhooken under Innstillinger → Betaling.',
+      );
+      throw new UnauthorizedException();
+    }
+
+    if (secret && !verifyVippsSignature(request, secret)) {
       this.logger.warn('Avviste Vipps-webhook med ugyldig signatur');
       throw new UnauthorizedException();
     }
 
-    await this.payments.handleVippsEvent(body);
+    await this.payments.handleVippsEvent(body ?? {});
     return { ok: true };
   }
 }
 
 /**
  * Vipps signs webhook requests with HMAC-SHA256 over the method, path and a
- * few headers, keyed with the secret from the webhook registration. Without a
- * configured secret (local development, before registration) the check is
- * skipped.
+ * few headers, keyed with the secret from the webhook registration.
  *
  * Docs: https://developer.vippsmobilepay.com/docs/APIs/webhooks-api/request-authentication/
  */
-function verifyVippsSignature(request: RawBodyRequest<Request>): boolean {
-  const secret = process.env.VIPPS_WEBHOOK_SECRET?.trim();
-  if (!secret) return true;
+function verifyVippsSignature(request: RawBodyRequest<Request>, secret: string): boolean {
 
   const raw = request.rawBody;
   if (!raw) return false;

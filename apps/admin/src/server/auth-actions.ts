@@ -1,6 +1,8 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { createHmac } from "node:crypto";
+
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AUTH_LOGIN_PATH } from "@/lib/auth";
@@ -25,6 +27,29 @@ type LoginStart =
 
 type LoginFinish = { error: string | null; mustChangePassword?: boolean };
 
+/**
+ * The browser's address, signed for the API.
+ *
+ * Login calls leave from this server, so to the API every attempt would look
+ * like it came from here – one shared bucket, which a stranger could fill to
+ * lock every admin out. Passing the real address on, with an HMAC only this
+ * app and the API can make, lets the API limit each caller separately.
+ */
+async function clientIpHeaders(): Promise<Record<string, string>> {
+  const incoming = await headers();
+  const ip =
+    incoming.get("x-real-ip")?.trim() ||
+    incoming.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const secret = process.env.AUTH_JWT_SECRET;
+  if (!ip || !secret) return {};
+
+  const signature = createHmac("sha256", secret).update(`client-ip:${ip}`).digest("base64url");
+  return {
+    "x-strandhager-client-ip": ip,
+    "x-strandhager-client-ip-sig": signature,
+  };
+}
+
 export async function startLogin(
   email: string,
   password: string,
@@ -39,7 +64,7 @@ export async function startLogin(
   try {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
       body: JSON.stringify({ email: trimmed, password }),
     });
 
@@ -82,7 +107,7 @@ export async function verifyLogin(
   try {
     const response = await fetch(`${API_URL}/auth/verify`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
       body: JSON.stringify({ challengeId, code: code.trim() }),
     });
 
@@ -210,7 +235,10 @@ export async function inviteAdminUser(name: string, email: string): Promise<Invi
 }
 
 /** Turns the one-time e-mail code at login on or off for the signed-in user. */
-export async function setTwoFactorLogin(enabled: boolean): Promise<{ error: string | null }> {
+export async function setTwoFactorLogin(
+  enabled: boolean,
+  currentPassword?: string,
+): Promise<{ error: string | null }> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) {
@@ -224,7 +252,7 @@ export async function setTwoFactorLogin(enabled: boolean): Promise<{ error: stri
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ enabled }),
+      body: JSON.stringify({ enabled, ...(currentPassword ? { currentPassword } : {}) }),
     });
 
     const body = await response.json().catch(() => null);

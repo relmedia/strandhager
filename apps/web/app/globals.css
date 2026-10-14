@@ -94,6 +94,19 @@
   --radius-card: 0.875rem;
   --radius-panel: 1.25rem;
   --radius-frame: 1.5rem;
+
+  /* The spotlights over the Parsellene band: each sways out by --spotlight-x
+     and back. The duration is set per element. */
+  --animate-spotlight-sway: spotlight-sway 7s ease-in-out infinite;
+  @keyframes spotlight-sway {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(var(--spotlight-x, 100px));
+    }
+  }
 }
 
 /* Fraunces' character axes. SOFT rounds the terminals and WONK swaps in the
@@ -188,4 +201,14 @@ body {
    at full opacity the whole time and reads far crisper. */
 [data-reveal-clip] {
   clip-path: inset(0 0 0 0);
+}
+
+/* The spotlights fade in once rather than switching on. */
+@keyframes spotlight-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

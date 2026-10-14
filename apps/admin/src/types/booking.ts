@@ -51,6 +51,15 @@ export type Booking = {
   updatedAt: string;
   /** Secret in the guest's own booking link, so it can be resent. */
   cancelToken: string;
+  /** Where the booking stands in Tripletex. */
+  tripletex: {
+    invoiceId: number | null;
+    invoiceNumber: string | null;
+    credited: boolean;
+    paymentSynced: boolean;
+    error: string | null;
+    syncedAt: string | null;
+  };
   space: { slug: string; name: string };
   guest: {
     id: string;

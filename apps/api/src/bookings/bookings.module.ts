@@ -6,9 +6,17 @@ import { PaymentsModule } from '../payments/payments.module';
 import { SpacesModule } from '../spaces/spaces.module';
 import { PricingModule } from '../pricing/pricing.module';
 import { SettingsModule } from '../settings/settings.module';
+import { TripletexModule } from '../tripletex/tripletex.module';
 
 @Module({
-  imports: [SpacesModule, NotificationsModule, PaymentsModule, PricingModule, SettingsModule],
+  imports: [
+    SpacesModule,
+    NotificationsModule,
+    PaymentsModule,
+    PricingModule,
+    SettingsModule,
+    TripletexModule,
+  ],
   controllers: [BookingsController],
   providers: [BookingsService],
 })

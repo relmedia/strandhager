@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { ThrottleModule } from './common/throttle.module';
@@ -47,6 +48,7 @@ import { SpacesModule } from './spaces/spaces.module';
     MediaModule,
     NotificationsModule,
     ContactModule,
+    AnalyticsModule,
   ],
   providers: [
     // Closed by default: every route needs a dashboard token unless it is

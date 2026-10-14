@@ -8,6 +8,18 @@ async function bootstrap() {
   // webhook needs to verify the HMAC signature.
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
+  // The API only ever answers with JSON or files: no framing, no sniffing,
+  // and no advertising which framework sits underneath.
+  const http = app.getHttpAdapter().getInstance();
+  http.disable('x-powered-by');
+  http.use((_req: unknown, res: { setHeader(name: string, value: string): void }, next: () => void) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    next();
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

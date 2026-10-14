@@ -529,7 +529,11 @@ export function BookingPanel({
 
               <p className="mt-4 text-ink-muted/80 text-xs leading-relaxed">
                 Forespørselen er ikke bindende. Vi holder av dagene til vi har svart deg,
-                og du betaler først etter at leien er bekreftet.
+                og du betaler først etter at leien er bekreftet. Les hvordan vi{" "}
+                <a href="/personvern" target="_blank" rel="noopener" className="underline underline-offset-2 transition-colors hover:text-ink">
+                  behandler personopplysninger
+                </a>
+                .
               </p>
             </form>
           )}

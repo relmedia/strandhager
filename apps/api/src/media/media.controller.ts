@@ -76,7 +76,12 @@ const LIBRARY_FOLDERS: Record<string, string[]> = {
   galleri: ['images/galleri'],
   images: ['images'],
   uploads: ['uploads'],
+  dokumenter: ['dokumenter'],
 };
+
+/** Document folders list PDFs; every other folder lists images. */
+const allowedIn = (relative: string) =>
+  relative === 'dokumenter' ? ALLOWED_DOCUMENTS : ALLOWED;
 
 type LibraryFile = {
   url: string;
@@ -125,7 +130,7 @@ export class MediaController {
     });
   }
 
-  /** Lists images already stored so the admin can re-add removed ones. */
+  /** Lists stored images (or PDFs, for "dokumenter") so the admin can reuse them. */
   @Get('library')
   async library(@Query('folder') folder = 'alle'): Promise<{ files: LibraryFile[] }> {
     const folders = LIBRARY_FOLDERS[folder];
@@ -143,7 +148,7 @@ export class MediaController {
       }
 
       return readdirSync(dir)
-        .filter((name) => ALLOWED.has(extname(name).toLowerCase()))
+        .filter((name) => allowedIn(relative).has(extname(name).toLowerCase()))
         .filter((name) => statSync(join(dir, name)).isFile())
         .map((name) => ({
           url: `/${relative}/${name}`,
@@ -152,13 +157,15 @@ export class MediaController {
         }));
     });
 
-    // Blob uploads show up under "uploads" (and thereby "alle").
-    if (useBlob() && folders.includes('uploads')) {
-      const { blobs } = await list({ prefix: 'uploads/' });
-      for (const blob of blobs) {
-        const name = basename(blob.pathname);
-        if (!ALLOWED.has(extname(name).toLowerCase())) continue;
-        files.push({ url: blob.url, name, size: blob.size });
+    // Blob uploads show up under "uploads" (and thereby "alle") and "dokumenter".
+    if (useBlob()) {
+      for (const prefix of folders.filter((f) => f === 'uploads' || f === 'dokumenter')) {
+        const { blobs } = await list({ prefix: `${prefix}/` });
+        for (const blob of blobs) {
+          const name = basename(blob.pathname);
+          if (!allowedIn(prefix).has(extname(name).toLowerCase())) continue;
+          files.push({ url: blob.url, name, size: blob.size });
+        }
       }
     }
 
